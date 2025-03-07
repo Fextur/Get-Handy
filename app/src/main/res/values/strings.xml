@@ -17,4 +17,5 @@
     <string name="edit_profile">Edit Profile</string>
     <string name="user_example_com">user@example.com</string>
     <string name="user_name">User Name</string>
+    <string name="full_name">Full Name</string>
 </resources>
