@@ -8,4 +8,8 @@
     <string name="sign_up">Sign Up</string>
     <string name="get_handy">Get Handy</string>
     <string name="search">Search</string>
+    <string name="search_by_profession">Search by profession</string>
+    <string name="plumber">Plumber</string>
+    <string name="electrician">Electrician</string>
+    <string name="carpenter">Carpenter</string>
 </resources>
