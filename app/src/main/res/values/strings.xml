@@ -12,4 +12,9 @@
     <string name="plumber">Plumber</string>
     <string name="electrician">Electrician</string>
     <string name="carpenter">Carpenter</string>
+    <string name="profile_picture">Profile Picture</string>
+    <string name="book_appointment">Book Appointment</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="user_example_com">user@example.com</string>
+    <string name="user_name">User Name</string>
 </resources>
