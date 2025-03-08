@@ -18,4 +18,19 @@
     <string name="user_example_com">user@example.com</string>
     <string name="user_name">User Name</string>
     <string name="full_name">Full Name</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="business_name">Business Name</string>
+    <string name="business_location_click_to_select">Business Location (Click to Select)</string>
+    <string name="save_business_info">Save Business Info</string>
+    <string name="your_appointments">Your Appointments</string>
+    <string name="date_january_1_2025">Date: January 1, 2025</string>
+    <string name="time_10_00_am">Time: 10:00 AM</string>
+    <string name="with_john_doe">With: John Doe</string>
+    <string name="cancel_appointment">Cancel Appointment</string>
+    <string name="select_date">Select Date</string>
+    <string name="pick_a_date">Pick a Date</string>
+    <string name="select_time">Select Time</string>
+    <string name="pick_a_time">Pick a Time</string>
+    <string name="confirm_appointment">Confirm Appointment</string>
 </resources>
