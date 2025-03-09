@@ -19,7 +19,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val properties = Properties()
-        val propertiesFile = rootProject.file("local.properties")
+        val propertiesFile = rootProject.file("secrets.properties")
 
         if (propertiesFile.exists()) {
             properties.load(propertiesFile.inputStream())

@@ -1,4 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <!-- Profile -->
+    <item
+        android:id="@+id/action_profile"
+        android:title="@string/profile"
+        android:icon="@drawable/person"
+        app:showAsAction="never"/>
+
+    <!-- Appointments -->
+    <item
+        android:id="@+id/action_appointments"
+        android:title="@string/appointments"
+        android:icon="@drawable/calender"
+        app:showAsAction="never"/>
+
+    <!-- Logout -->
+    <item
+        android:id="@+id/action_logout"
+        android:title="@string/logout"
+        android:icon="@drawable/logout"
+        app:showAsAction="never"/>
 </menu>

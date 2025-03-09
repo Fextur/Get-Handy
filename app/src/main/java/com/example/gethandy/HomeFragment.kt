@@ -5,11 +5,20 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
@@ -49,6 +58,43 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         mapView.onCreate(savedInstanceState)
         mapView.getMapAsync(this)
         return view
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        view.findViewById<FloatingActionButton>(R.id.btnSearch).setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_search)
+        }
+
+        view.findViewById<FloatingActionButton>(R.id.btnMenu).setOnClickListener { button ->
+            showPopupMenu(button)
+        }
+    }
+
+    private fun showPopupMenu(view: View) {
+        val popupMenu = PopupMenu(requireContext(), view)
+        popupMenu.menuInflater.inflate(R.menu.menu_home, popupMenu.menu)
+
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_profile -> {
+                    findNavController().navigate(R.id.action_home_to_profile)
+                    true
+                }
+                R.id.action_appointments -> {
+                    findNavController().navigate(R.id.action_home_to_appointments)
+                    true
+                }
+                R.id.action_logout -> {
+                    findNavController().navigate(R.id.action_home_to_login)
+                    true
+                }
+                else -> false
+            }
+        }
+
+        popupMenu.show()
     }
 
     override fun onMapReady(mapboxMap: MapboxMap) {

@@ -33,4 +33,8 @@
     <string name="select_time">Select Time</string>
     <string name="pick_a_time">Pick a Time</string>
     <string name="confirm_appointment">Confirm Appointment</string>
+    <string name="profile">Profile</string>
+    <string name="appointments">Appointments</string>
+    <string name="logout">Logout</string>
+    <string name="menu">Menu</string>
 </resources>
