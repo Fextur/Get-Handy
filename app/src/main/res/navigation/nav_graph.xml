@@ -4,7 +4,6 @@
     xmlns:tools="http://schemas.android.com/tools"
     app:startDestination="@id/splashFragment">
 
-    <!-- Splash Screen -->
     <fragment
         android:id="@+id/splashFragment"
         android:name="com.example.gethandy.SplashFragment"
@@ -20,7 +19,6 @@
             app:destination="@id/homeFragment"/>
     </fragment>
 
-    <!-- Login -->
     <fragment
         android:id="@+id/loginFragment"
         android:name="com.example.gethandy.LoginFragment"
@@ -36,7 +34,6 @@
             app:destination="@id/signUpFragment"/>
     </fragment>
 
-    <!-- Sign Up -->
     <fragment
         android:id="@+id/signUpFragment"
         android:name="com.example.gethandy.SignUpFragment"
@@ -48,7 +45,6 @@
             app:destination="@id/homeFragment"/>
     </fragment>
 
-    <!-- Home -->
     <fragment
         android:id="@+id/homeFragment"
         android:name="com.example.gethandy.HomeFragment"
@@ -72,7 +68,6 @@
             app:destination="@id/appointmentsFragment"/>
     </fragment>
 
-    <!-- Search -->
     <fragment
         android:id="@+id/searchFragment"
         android:name="com.example.gethandy.SearchFragment"
@@ -84,7 +79,6 @@
             app:destination="@id/profileFragment"/>
     </fragment>
 
-    <!-- Profile -->
     <fragment
         android:id="@+id/profileFragment"
         android:name="com.example.gethandy.ProfileFragment"
@@ -100,7 +94,6 @@
             app:destination="@id/appointmentsFragment"/>
     </fragment>
 
-    <!-- Appointments -->
     <fragment
         android:id="@+id/appointmentsFragment"
         android:name="com.example.gethandy.AppointmentsFragment"
@@ -108,11 +101,14 @@
         tools:layout="@layout/fragment_appointments">
 
         <action
-            android:id="@+id/action_appointments_to_home"
-            app:destination="@id/homeFragment"/>
+            android:id="@+id/action_appointments_to_profile"
+            app:destination="@id/profileFragment">
+            <argument
+                android:name="userId"
+                app:argType="string" />
+        </action>
     </fragment>
 
-    <!-- Appointment Booking -->
     <fragment
         android:id="@+id/appointmentBookingFragment"
         android:name="com.example.gethandy.AppointmentBookingFragment"

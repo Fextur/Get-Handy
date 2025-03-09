@@ -37,4 +37,10 @@
     <string name="appointments">Appointments</string>
     <string name="logout">Logout</string>
     <string name="menu">Menu</string>
+    <string name="january_1_2025">January 1, 2025</string>
+    <string name="_10_00_am">10:00 AM</string>
+    <string name="appointment_with">With %s</string>
+    <string name="_5_km_away">5 km away</string>
+    <string name="distance_km_away">%1$.1f km away</string>
+
 </resources>
