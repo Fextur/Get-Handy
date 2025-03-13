@@ -113,5 +113,10 @@
         android:id="@+id/appointmentBookingFragment"
         android:name="com.example.gethandy.AppointmentBookingFragment"
         android:label="Book Appointment"
-        tools:layout="@layout/fragment_appointment_booking"/>
+        tools:layout="@layout/fragment_appointment_booking">
+
+    <action
+        android:id="@+id/action_booking_to_home"
+        app:destination="@id/homeFragment"/>
+    </fragment>
 </navigation>
