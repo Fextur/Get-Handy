@@ -1,6 +1,7 @@
 [versions]
 agp = "8.8.0"
 androidSdk = "9.6.0"
+firebaseBom = "33.10.0"
 kotlin = "1.9.24"
 coreKtx = "1.15.0"
 junit = "4.13.2"
@@ -14,8 +15,12 @@ materialIconsCore = "1.5.0"
 playServicesMaps = "18.1.0"
 navigationFragmentKtx = "2.8.8"
 navigationUiKtx = "2.8.8"
+googleServices = "4.4.2"
 
 [libraries]
+firebase-auth = { module = "com.google.firebase:firebase-auth" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 maplibre = { module = "org.maplibre.gl:android-sdk", version.ref = "androidSdk" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-material-icons-core = { module = "androidx.compose.material:material-icons-core", version.ref = "materialIconsCore" }
@@ -34,4 +39,5 @@ androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+google-services= { id = "com.google.gms.google-services", version.ref = "googleServices"}
 
