@@ -1,6 +1,5 @@
 package com.example.gethandy
 
-import android.location.Location
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -51,16 +50,12 @@ class SearchFragment : Fragment() {
             })
         }
 
-        rvBusinesses.layoutManager = LinearLayoutManager(requireContext()) // ✅ Required!
+        rvBusinesses.layoutManager = LinearLayoutManager(requireContext())
         rvBusinesses.adapter = businessAdapter
 
-        println("📊 Business List Size Before Adapter: ${businessesList.size}")
 
-        businessAdapter.updateList(businessesList) // ✅ Correct way to refresh list
+        businessAdapter.updateList(businessesList)
 
-        println("📊 Business List Size After Adapter: ${businessAdapter.itemCount}")
-
-        // 🔥 Populate ChipGroup dynamically
         chipGroupFilters.removeAllViews()
         for (occupation in occupations) {
             val chip = com.google.android.material.chip.Chip(requireContext()).apply {
@@ -74,8 +69,6 @@ class SearchFragment : Fragment() {
         }
     }
 
-
-    // ✅ Filter businesses based on selected occupation
     private fun filterBusinesses(selectedOccupation: String?) {
         val filteredList = if (selectedOccupation == null) {
             businessesList

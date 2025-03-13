@@ -42,5 +42,12 @@
     <string name="appointment_with">With %s</string>
     <string name="_5_km_away">5 km away</string>
     <string name="distance_km_away">%1$.1f km away</string>
+    <string name="phone">Phone</string>
+    <string name="profession">Profession</string>
+    <string name="is_this_a_business_account">Is this a Business Account?</string>
+    <string name="business_location">Business Location</string>
+    <string name="_123456789">+123456789</string>
+    <string name="business_description">Business Description</string>
+    <string name="business_address">Business Address</string>
 
 </resources>
