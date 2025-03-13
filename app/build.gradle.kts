@@ -1,6 +1,9 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -15,6 +18,16 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val properties = Properties()
+        val propertiesFile = rootProject.file("secrets.properties")
+
+        if (propertiesFile.exists()) {
+            properties.load(propertiesFile.inputStream())
+        }
+
+        val mapboxApiKey = properties.getProperty("MAPBOX_API_KEY", "")
+        buildConfigField("String", "MAPBOX_API_KEY", "\"$mapboxApiKey\"")
     }
 
     buildTypes {
@@ -33,6 +46,16 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    viewBinding {
+        enable = true
+    }
+
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
+
 }
 
 dependencies {
@@ -42,7 +65,18 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation(libs.play.services.maps)
+    implementation(libs.androidx.material.icons.core)
+    implementation(libs.androidx.material.icons.extended)
+    implementation(libs.maplibre)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
+
+
 }
