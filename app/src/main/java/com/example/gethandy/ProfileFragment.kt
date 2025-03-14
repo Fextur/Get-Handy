@@ -1,20 +1,28 @@
 package com.example.gethandy
 
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.gethandy.databinding.FragmentProfileBinding
 import com.example.gethandy.utils.UserManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.location.LocationComponent
+import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.modes.CameraMode
+import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
 
@@ -33,7 +41,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     private var userId: String? = null
     private var profileImageUri: Uri? = null
     private var businessLatLng: LatLng? = null
-    private var mapboxMap: MapLibreMap? = null
+    private var maplibreMap: MapLibreMap? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -141,7 +149,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             toggleField(binding.tvBusinessAddress, binding.etBusinessAddress, true)
         }
 
-        mapboxMap?.uiSettings?.setAllGesturesEnabled(true)
+        maplibreMap?.uiSettings?.setAllGesturesEnabled(true)
 
         toggleBusinessFields(isBusinessAccount)
     }
@@ -178,7 +186,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
         toggleBusinessFields(isBusinessAccount)
 
-        mapboxMap?.uiSettings?.setAllGesturesEnabled(false)
+        maplibreMap?.uiSettings?.setAllGesturesEnabled(false)
     }
 
     private fun toggleField(textView: View, editText: View, isEditing: Boolean) {
@@ -219,35 +227,56 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 //            }
     }
 
-    override fun onMapReady(mapboxMap: MapLibreMap) {
-        this.mapboxMap = mapboxMap
-        mapboxMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPBOX_API_KEY}") {
+    override fun onMapReady(maplibreMap: MapLibreMap) {
+        this.maplibreMap = maplibreMap
+        maplibreMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPLIBRE_API_KEY}") {
             businessLatLng?.let { latLng ->
-                mapboxMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0))
-//                mapboxMap.addMarker(com.mapbox.mapboxsdk.annotations.MarkerOptions().position(latLng))
-            } ?: centerMapOnUser()
+                maplibreMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0))
+                maplibreMap.addMarker(MarkerOptions().position(latLng))
+            } ?: enableUserLocation()
+
         }
 
-        mapboxMap.addOnMapClickListener { point ->
+        maplibreMap.addOnMapClickListener { point ->
             if (isEditing) {
                 businessLatLng = point
-//                mapboxMap.clear()
-//                mapboxMap.addMarker(com.mapbox.mapboxsdk.annotations.MarkerOptions().position(point))
+                maplibreMap.clear()
+                maplibreMap.addMarker(MarkerOptions().position(point))
             }
             true
         }
 
-        mapboxMap.uiSettings.setAllGesturesEnabled(false)
+        maplibreMap.uiSettings.setAllGesturesEnabled(false)
+    }
+
+    private fun enableUserLocation() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED) {
+
+            val locationComponent: LocationComponent = maplibreMap!!.locationComponent
+            locationComponent.activateLocationComponent(
+                LocationComponentActivationOptions.builder(requireContext(), maplibreMap!!.style!!)
+                    .build()
+            )
+            locationComponent.isLocationComponentEnabled = true
+            locationComponent.cameraMode = CameraMode.TRACKING
+            locationComponent.renderMode = RenderMode.NORMAL
+
+            val lastLocation = locationComponent.lastKnownLocation
+            if (lastLocation != null) {
+                val userLatLng = LatLng(lastLocation.latitude, lastLocation.longitude)
+                maplibreMap!!.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.0))
+            }
+        } else {
+            centerMapOnUser()
+        }
     }
 
     private fun centerMapOnUser() {
         val defaultLocation = LatLng(32.0853, 34.7818) // Example (Tel Aviv)
-        mapboxMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 12.0))
+        maplibreMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 12.0))
     }
 
-//    private fun addMapMarker(latLng: LatLng) {
-//        Marker
-//    }
 
     override fun onStart() { super.onStart(); binding.mapViewBusinessLocation.onStart() }
     override fun onResume() { super.onResume(); binding.mapViewBusinessLocation.onResume() }

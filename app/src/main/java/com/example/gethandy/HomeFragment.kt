@@ -42,13 +42,13 @@ import org.maplibre.android.maps.OnMapReadyCallback
 class HomeFragment : Fragment(), OnMapReadyCallback {
 
     private lateinit var mapView: MapView
-    private lateinit var mapboxMap: MapLibreMap
+    private lateinit var maplibreMap: MapLibreMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        MapLibre.getInstance(requireContext(), BuildConfig.MAPBOX_API_KEY, WellKnownTileServer.MapLibre)
+        MapLibre.getInstance(requireContext(), BuildConfig.MAPLIBRE_API_KEY, WellKnownTileServer.MapLibre)
     }
 
     override fun onCreateView(
@@ -103,9 +103,9 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         popupMenu.show()
     }
 
-    override fun onMapReady(mapboxMap: MapLibreMap) {
-        this.mapboxMap = mapboxMap
-        mapboxMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPBOX_API_KEY}") {
+    override fun onMapReady(maplibreMap: MapLibreMap) {
+        this.maplibreMap = maplibreMap
+        maplibreMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPLIBRE_API_KEY}") {
             requestLocationPermission()
         }
     }
@@ -133,10 +133,9 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
             return
         }
 
-        val locationComponent: LocationComponent = mapboxMap.locationComponent
+        val locationComponent: LocationComponent = maplibreMap.locationComponent
         locationComponent.activateLocationComponent(
-            LocationComponentActivationOptions.builder(requireContext(), mapboxMap.style!!)
-                .useDefaultLocationEngine(false)
+            LocationComponentActivationOptions.builder(requireContext(), maplibreMap.style!!)
                 .build()
         )
 
@@ -153,7 +152,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
 
     private fun updateMapLocation(location: Location) {
         val userLatLng = LatLng(location.latitude, location.longitude)
-        mapboxMap.animateCamera(
+        maplibreMap.animateCamera(
             CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
                     .target(userLatLng)

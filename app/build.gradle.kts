@@ -26,8 +26,8 @@ android {
             properties.load(propertiesFile.inputStream())
         }
 
-        val mapboxApiKey = properties.getProperty("MAPBOX_API_KEY", "")
-        buildConfigField("String", "MAPBOX_API_KEY", "\"$mapboxApiKey\"")
+        val maplibreApiKey = properties.getProperty("MAPLIBRE_API_KEY", "")
+        buildConfigField("String", "MAPLIBRE_API_KEY", "\"$maplibreApiKey\"")
     }
 
     buildTypes {

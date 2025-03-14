@@ -1,5 +1,6 @@
 [versions]
 agp = "8.8.0"
+androidPluginAnnotation = "2.0.0"
 firebaseAuth = "23.2.0"
 firebaseBom = "33.10.0"
 kotlin = "2.0.0"
@@ -21,6 +22,7 @@ playServicesLocation = "21.3.0"
 
 [libraries]
 
+android-plugin-annotation = { module = "org.maplibre.gl:android-plugin-annotation", version.ref = "androidPluginAnnotation" }
 maplibre = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibreAndroidSdk" }
 com-google-firebase-firebase-auth = { module = "com.google.firebase:firebase-auth", version.ref = "firebaseAuth" }
 firebase-auth = { module = "com.google.firebase:firebase-auth" }
