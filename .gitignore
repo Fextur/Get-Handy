@@ -1,1 +1,3 @@
 secrets.properties
+/build
+google-services.json
