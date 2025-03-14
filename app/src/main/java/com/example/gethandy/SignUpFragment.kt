@@ -9,6 +9,8 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.gethandy.databinding.FragmentSignUpBinding
+import com.example.gethandy.utils.SnackbarType
+import com.example.gethandy.utils.showSnackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -91,7 +93,8 @@ class SignUpFragment : Fragment() {
         db.collection("users").document(userId)
             .set(user)
             .addOnSuccessListener {
-                Toast.makeText(requireContext(), getString(R.string.account_created_successfully), Toast.LENGTH_SHORT).show()
+                showSnackbar(binding.root, getString(R.string.account_created_successfully), SnackbarType.SUCCESS)
+
                 findNavController().navigate(R.id.action_signup_to_home)
             }
             .addOnFailureListener { e ->
@@ -100,7 +103,7 @@ class SignUpFragment : Fragment() {
     }
 
     private fun showError(message: String) {
-        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+        showSnackbar(binding.root, message, SnackbarType.ERROR)
         binding.btnSignup.isEnabled = true
         binding.btnSignup.text = getString(R.string.sign_up)
     }
