@@ -49,5 +49,13 @@
     <string name="_123456789">+123456789</string>
     <string name="business_description">Business Description</string>
     <string name="business_address">Business Address</string>
+    <string name="signing_up">Signing up…</string>
+    <string name="full_name_required">Full name is required</string>
+    <string name="valid_email_required">Valid email is required</string>
+    <string name="valid_phone_required">Enter a valid phone number</string>
+    <string name="password_length_error">Password must be at least 6 characters</string>
+    <string name="account_created_successfully">Account created successfully!</string>
+    <string name="error_saving_data">Error saving data</string>
+
 
 </resources>

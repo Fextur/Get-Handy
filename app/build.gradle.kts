@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.maplibre)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
+    implementation(libs.com.google.firebase.firebase.auth)
 
 
 }
