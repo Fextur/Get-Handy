@@ -1,28 +1,39 @@
 package com.example.gethandy
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.gethandy.databinding.FragmentProfileBinding
-import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
-import com.mapbox.mapboxsdk.geometry.LatLng
-import com.mapbox.mapboxsdk.maps.MapboxMap
-import com.mapbox.mapboxsdk.maps.OnMapReadyCallback
-import com.mapbox.mapboxsdk.maps.Style
+import com.example.gethandy.utils.UserManager
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.OnMapReadyCallback
+
 
 class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
 
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
+
     private var isEditing = false
     private var isBusinessAccount = false
-    private var isCurrentUser = true // Assume it's the current user
-    private var mapboxMap: MapboxMap? = null
-    private var businessLatLng: LatLng? = null // Business location
+    private var isCurrentUser = true
+    private var userId: String? = null
+    private var profileImageUri: Uri? = null
+    private var businessLatLng: LatLng? = null
+    private var mapboxMap: MapLibreMap? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -35,54 +46,62 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val userId = arguments?.getString("userId") // Get userId from arguments
-        isCurrentUser = userId == null
+        userId = arguments?.getString("userId") ?: UserManager.getUserId(requireContext())
+        isCurrentUser = (userId == UserManager.getUserId(requireContext()))
 
         loadProfileData()
         updateButtons()
 
-        // 🎯 Initialize Map
         binding.mapViewBusinessLocation.onCreate(savedInstanceState)
         binding.mapViewBusinessLocation.getMapAsync(this)
 
-        // 🔄 Toggle Edit Mode
         binding.btnEditProfile.setOnClickListener {
             if (isEditing) saveProfileChanges() else enableEditMode()
         }
 
-        // 📅 Book Appointment (Only if it's another user's profile)
         binding.btnBookAppointment.setOnClickListener {
             findNavController().navigate(R.id.action_profile_to_appointment_booking)
         }
 
-        // 🎯 Handle Business Account Toggle
         binding.radioGroupBusiness.setOnCheckedChangeListener { _, checkedId ->
             isBusinessAccount = checkedId == R.id.radioBusinessYes
             toggleBusinessFields(isBusinessAccount)
         }
+
+        binding.ivProfilePic.setOnClickListener {
+            if (isEditing) selectProfileImage()
+        }
     }
 
     private fun loadProfileData() {
-        val userName = "John Doe"
-        val userEmail = "john.doe@example.com"
-        val userPhone = "+1 123-456-7890"
+        if(userId === null) return;
 
-        binding.tvUserName.text = userName
-        binding.tvUserEmail.text = userEmail
-        binding.tvUserPhone.text = userPhone
+        firestore.collection("users").document(userId!!).get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    binding.tvUserName.text = document.getString("fullName") ?: "N/A"
+                    binding.tvUserEmail.text = document.getString("email") ?: "N/A"
+                    binding.tvUserPhone.text = document.getString("phone") ?: "N/A"
 
-        binding.etUserName.setText(userName)
-        binding.etUserEmail.setText(userEmail)
-        binding.etUserPhone.setText(userPhone)
+                    binding.etUserName.setText(binding.tvUserName.text)
+                    binding.etUserEmail.setText(binding.tvUserEmail.text)
+                    binding.etUserPhone.setText(binding.tvUserPhone.text)
 
-        // Assume another user is a business, but don't prefill business fields unless they're actually a business.
+//                    val profileImageUrl = document.getString("profileImageUrl")
+//                    if (!profileImageUrl.isNullOrEmpty()) {
+//                        Glide.with(this).load(profileImageUrl).into(binding.ivProfilePic)
+//                    }
+                }
+            }
+
+
         isBusinessAccount = !isCurrentUser
 
         if (isBusinessAccount) {
             val businessName = "Doe Plumbing"
             val businessDescription = "Professional plumbing services"
             val businessAddress = "123 Main Street"
-            businessLatLng = LatLng(32.0853, 34.7818) // Example location (Tel Aviv)
+            businessLatLng = LatLng(32.0853, 34.7818)
 
             binding.etBusinessName.setText(businessName)
             binding.etBusinessDescription.setText(businessDescription)
@@ -107,13 +126,13 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     private fun enableEditMode() {
         isEditing = true
-        binding.btnEditProfile.text = "Save Profile"
+        binding.btnEditProfile.text = getString(R.string.save_profile)
 
         binding.tvBusinessQuestion.visibility = View.VISIBLE
         binding.radioGroupBusiness.visibility = View.VISIBLE
 
         toggleField(binding.tvUserName, binding.etUserName, true)
-        toggleField(binding.tvUserEmail, binding.etUserEmail, true)
+        toggleField(binding.tvUserEmail, binding.etUserEmail, false)
         toggleField(binding.tvUserPhone, binding.etUserPhone, true)
 
         if (isBusinessAccount) {
@@ -129,15 +148,20 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     private fun saveProfileChanges() {
         isEditing = false
-        binding.btnEditProfile.text = "Edit Profile"
+        binding.btnEditProfile.text = getString(R.string.edit_profile)
 
-        val newName = binding.etUserName.text.toString()
-        val newEmail = binding.etUserEmail.text.toString()
-        val newPhone = binding.etUserPhone.text.toString()
+        val updatedData = mutableMapOf(
+            "fullName" to binding.etUserName.text.toString(),
+            "email" to binding.etUserEmail.text.toString(),
+            "phone" to binding.etUserPhone.text.toString()
+        )
 
-        binding.tvUserName.text = newName
-        binding.tvUserEmail.text = newEmail
-        binding.tvUserPhone.text = newPhone
+        userId?.let { id ->
+            firestore.collection("users").document(id).update(updatedData as Map<String, Any>)
+                .addOnSuccessListener {
+                    loadProfileData()
+                }
+        }
 
         toggleField(binding.tvUserName, binding.etUserName, false)
         toggleField(binding.tvUserEmail, binding.etUserEmail, false)
@@ -172,20 +196,43 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         binding.etBusinessAddress.hint = "Business Address"
     }
 
-    override fun onMapReady(mapboxMap: MapboxMap) {
+    private val imagePickerLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let {
+                profileImageUri = it
+                binding.ivProfilePic.setImageURI(it)
+                uploadProfileImage(it)
+            }
+        }
+
+    private fun selectProfileImage() {
+        imagePickerLauncher.launch("image/*")
+    }
+
+    private fun uploadProfileImage(uri: Uri) {
+//        val imageRef = storage.reference.child("profile_pics/${userId}.jpg")
+//        imageRef.putFile(uri)
+//            .addOnSuccessListener {
+//                imageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
+//                    firestore.collection("users").document(userId!!).update("profilePicUrl", downloadUrl.toString())
+//                }
+//            }
+    }
+
+    override fun onMapReady(mapboxMap: MapLibreMap) {
         this.mapboxMap = mapboxMap
         mapboxMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPBOX_API_KEY}") {
             businessLatLng?.let { latLng ->
                 mapboxMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0))
-                mapboxMap.addMarker(com.mapbox.mapboxsdk.annotations.MarkerOptions().position(latLng))
+//                mapboxMap.addMarker(com.mapbox.mapboxsdk.annotations.MarkerOptions().position(latLng))
             } ?: centerMapOnUser()
         }
 
         mapboxMap.addOnMapClickListener { point ->
             if (isEditing) {
                 businessLatLng = point
-                mapboxMap.clear()
-                mapboxMap.addMarker(com.mapbox.mapboxsdk.annotations.MarkerOptions().position(point))
+//                mapboxMap.clear()
+//                mapboxMap.addMarker(com.mapbox.mapboxsdk.annotations.MarkerOptions().position(point))
             }
             true
         }
@@ -198,6 +245,10 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         mapboxMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 12.0))
     }
 
+//    private fun addMapMarker(latLng: LatLng) {
+//        Marker
+//    }
+
     override fun onStart() { super.onStart(); binding.mapViewBusinessLocation.onStart() }
     override fun onResume() { super.onResume(); binding.mapViewBusinessLocation.onResume() }
     override fun onPause() { super.onPause(); binding.mapViewBusinessLocation.onPause() }
@@ -206,5 +257,9 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         super.onDestroyView()
         binding.mapViewBusinessLocation.onDestroy()
         _binding = null
+    }
+
+    companion object {
+        private const val REQUEST_IMAGE_PICK = 1001
     }
 }

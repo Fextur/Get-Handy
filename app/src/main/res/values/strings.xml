@@ -56,9 +56,10 @@
     <string name="password_length_error">Password must be at least 6 characters</string>
     <string name="account_created_successfully">Account created successfully!</string>
     <string name="error_saving_data">Error saving data</string>
-    <string name="logging_in">Logging in...</string>
+    <string name="logging_in">Logging in…</string>
     <string name="login_successful">Login successful!</string>
     <string name="invalid_credentials">Invalid email or password</string>
+    <string name="save_profile">Save Profile</string>
 
 
 </resources>
