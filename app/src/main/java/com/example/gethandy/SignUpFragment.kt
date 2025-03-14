@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.gethandy.databinding.FragmentSignUpBinding
 import com.example.gethandy.utils.SnackbarType
+import com.example.gethandy.utils.UserManager
 import com.example.gethandy.utils.showSnackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -54,7 +55,9 @@ class SignUpFragment : Fragment() {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val userId = auth.currentUser?.uid ?: ""
+                    val userId = task.result?.user?.uid ?: return@addOnCompleteListener
+                    UserManager.saveUserId(requireContext(), userId)
+
                     saveUserToFirestore(userId, fullName, email, phone)
                 } else {
                     showError(task.exception?.message ?: "Sign up failed")

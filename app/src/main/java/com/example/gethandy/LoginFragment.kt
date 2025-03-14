@@ -9,6 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.gethandy.databinding.FragmentLoginBinding
 import com.example.gethandy.utils.SnackbarType
+import com.example.gethandy.utils.UserManager
 import com.example.gethandy.utils.showSnackbar
 import com.google.firebase.auth.FirebaseAuth
 
@@ -59,6 +60,9 @@ class LoginFragment : Fragment() {
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
+                    val userId = auth.currentUser?.uid ?: return@addOnCompleteListener
+                    UserManager.saveUserId(requireContext(), userId)
+
                     showSnackbar(binding.root, getString(R.string.login_successful), SnackbarType.SUCCESS)
                     findNavController().navigate(R.id.action_login_to_home)
                 } else {

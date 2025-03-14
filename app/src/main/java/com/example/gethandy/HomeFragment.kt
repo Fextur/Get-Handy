@@ -17,8 +17,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.example.gethandy.utils.UserManager
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.firebase.auth.FirebaseAuth
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
@@ -87,6 +89,8 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
                     true
                 }
                 R.id.action_logout -> {
+                    FirebaseAuth.getInstance().signOut()  // Firebase logout
+                    UserManager.clearUser(requireContext())
                     findNavController().navigate(R.id.action_home_to_login)
                     true
                 }
