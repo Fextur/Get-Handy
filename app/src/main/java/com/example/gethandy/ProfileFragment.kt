@@ -2,13 +2,17 @@ package com.example.gethandy
 
 import android.content.Intent
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -23,6 +27,7 @@ import com.example.gethandy.utils.UserManager
 import com.firebase.geofire.GeoFireUtils
 import com.firebase.geofire.GeoLocation
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import org.maplibre.android.annotations.MarkerOptions
@@ -53,6 +58,13 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     private var profileImageUri: Uri? = null
     private var businessLatLng: LatLng? = null
     private var maplibreMap: MapLibreMap? = null
+
+    private val professionList = mutableListOf<String>()
+    private lateinit var professionAdapter: ArrayAdapter<String>
+
+
+
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -105,7 +117,54 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         binding.ivProfilePic.setOnClickListener {
             if (isEditing) selectProfileImage()
         }
+
+        professionAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, professionList)
+        binding.etBusinessProfession.setAdapter(professionAdapter)
+
+        loadAllProfessions()
+
+        binding.etBusinessProfession.setOnClickListener {
+            binding.etBusinessProfession.showDropDown()
+        }
+
+        binding.etBusinessProfession.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                val searchText = s.toString().trim()
+                val filteredList = if (searchText.isEmpty()) {
+                    professionList
+                } else {
+                    professionList.filter { it.contains(searchText, ignoreCase = true) }
+                }
+                professionAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, filteredList)
+                binding.etBusinessProfession.setAdapter(professionAdapter)
+                binding.etBusinessProfession.showDropDown() // Ensure dropdown is always visible
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
     }
+    private fun loadAllProfessions() {
+        firestore.collection("professions")
+            .orderBy("name")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                professionList.clear()
+                for (doc in snapshot.documents) {
+                    val profession = doc.getString("name") ?: continue
+                    professionList.add(profession)
+                }
+                professionAdapter.notifyDataSetChanged()
+            }
+            .addOnFailureListener { e ->
+                Log.e("ProfileFragment", "Error loading professions: ${e.message}")
+            }
+    }
+
+
+
+
+
 
     private fun loadProfileData() {
         if(userId === null) return;
@@ -149,7 +208,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                     binding.tvBusinessName.text = (doc.getString("businessName"))
                     binding.tvBusinessDescription.text = (doc.getString("description"))
                     binding.tvBusinessAddress.text = (doc.getString("address"))
-//                    binding.etBusinessProfession.setText(doc.getString("profession"))
+                    binding.tvBusinessProfession.text = (doc.getString("profession"))
                     val locationData = doc.get("location") as? Map<*, *>
                     if (locationData != null) {
                         val latitude = locationData["latitude"] as? Double ?: 0.0
@@ -167,6 +226,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                     binding.etBusinessName.setText(binding.tvBusinessName.text)
                     binding.etBusinessDescription.setText(binding.tvBusinessDescription.text)
                     binding.etBusinessAddress.setText(binding.tvBusinessAddress.text)
+                    binding.etBusinessProfession.setText(binding.tvBusinessProfession.text)
                 }
             }
     }
@@ -197,7 +257,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         }
 
         toggleBusinessFields()
-        enableUserLocation()
+        if(maplibreMap !== null) enableUserLocation()
     }
 
     private fun saveProfileChanges() {
@@ -259,6 +319,9 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             toggleField(binding.tvBusinessName, binding.layoutBusinessName)
             toggleField(binding.tvBusinessDescription, binding.layoutBusinessDescription)
             toggleField(binding.tvBusinessAddress, binding.layoutBusinessAddress)
+            toggleField(binding.tvBusinessProfession, binding.layoutBusinessProfession)
+
+
             maplibreMap?.uiSettings?.setAllGesturesEnabled(true)
 
         }
@@ -313,7 +376,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             "businessName" to binding.etBusinessName.text.toString(),
             "description" to binding.etBusinessDescription.text.toString(),
             "address" to binding.etBusinessAddress.text.toString(),
-//            "profession" to binding.etBusinessProfession.text.toString(),
+            "profession" to binding.etBusinessProfession.text.toString(),
             "location" to businessLatLng,
             "geoHash" to geoHash
         )
@@ -342,6 +405,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     }
 
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onMapReady(maplibreMap: MapLibreMap) {
         this.maplibreMap = maplibreMap
         maplibreMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPLIBRE_API_KEY}") {
@@ -358,6 +422,13 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 maplibreMap.clear()
                 maplibreMap.addMarker(MarkerOptions().position(point))
             }
+            true
+        }
+
+
+        binding.mapViewBusinessLocation.setOnTouchListener { v, event ->
+            v.parent.requestDisallowInterceptTouchEvent(true)
+            v.onTouchEvent(event)
             true
         }
     }

@@ -1,4 +1,5 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -173,6 +174,32 @@
                         android:inputType="text"
                         android:enabled="true"/>
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tvBusinessProfession"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/profession" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layoutBusinessProfession"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/profession">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/etBusinessProfession"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:inputType="text"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        android:clickable="true"
+                        tools:ignore="LabelFor"
+                        android:padding="16dp"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+
 
                 <TextView android:id="@+id/tvBusinessAddress"
                     android:layout_width="wrap_content"

@@ -60,6 +60,7 @@
     <string name="login_successful">Login successful!</string>
     <string name="invalid_credentials">Invalid email or password</string>
     <string name="save_profile">Save Profile</string>
+    <string name="select_profession">Select Profession</string>
 
 
 </resources>
