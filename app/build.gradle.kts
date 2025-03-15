@@ -91,4 +91,7 @@ dependencies {
     kapt(libs.compiler)
     implementation(libs.cloudinary.android)
 
+    implementation(libs.geofire.android.common)
+
+
 }

@@ -20,6 +20,8 @@ import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
 import com.example.gethandy.databinding.FragmentProfileBinding
 import com.example.gethandy.utils.UserManager
+import com.firebase.geofire.GeoFireUtils
+import com.firebase.geofire.GeoLocation
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -302,6 +304,10 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     }
 
     private suspend fun saveOrUpdateBusiness(): String? = suspendCoroutine { continuation ->
+        val latitude = businessLatLng?.latitude ?: 0.0
+        val longitude = businessLatLng?.longitude ?: 0.0
+        val geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(latitude, longitude))
+
         val businessData = mapOf(
             "userId" to userId,
             "businessName" to binding.etBusinessName.text.toString(),
@@ -309,9 +315,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             "address" to binding.etBusinessAddress.text.toString(),
 //            "profession" to binding.etBusinessProfession.text.toString(),
             "location" to businessLatLng,
-//            "geoHash" to GeoFireUtils.getGeoHashForLocation(
-//                GeoLocation(businessLatLng!!.latitude, businessLatLng!!.longitude)
-//            )
+            "geoHash" to geoHash
         )
 
         if (!businessId.isNullOrEmpty()) {
