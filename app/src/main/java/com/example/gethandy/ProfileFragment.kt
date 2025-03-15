@@ -122,7 +122,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                     toggleBusinessFields()
 
                     binding.etUserName.setText(binding.tvUserName.text)
-                    binding.etUserEmail.setText(binding.tvUserEmail.text)
                     binding.etUserPhone.setText(binding.tvUserPhone.text)
                     val profileImageUrl = document.getString("profilePicUrl")
 
@@ -146,10 +145,22 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             .addOnSuccessListener { doc ->
                 if (doc.exists()) {
                     binding.tvBusinessName.text = (doc.getString("businessName"))
-                    binding.tvBusinessDescription.text = (doc.getString("address"))
-                    binding.tvBusinessAddress.text = (doc.getString("description"))
+                    binding.tvBusinessDescription.text = (doc.getString("description"))
+                    binding.tvBusinessAddress.text = (doc.getString("address"))
 //                    binding.etBusinessProfession.setText(doc.getString("profession"))
-//                    businessLatLng = doc.getString("location")
+                    val locationData = doc.get("location") as? Map<*, *>
+                    if (locationData != null) {
+                        val latitude = locationData["latitude"] as? Double ?: 0.0
+                        val longitude = locationData["longitude"] as? Double ?: 0.0
+                        businessLatLng = LatLng(latitude, longitude)
+                        if(maplibreMap !== null) {
+                            maplibreMap?.clear()
+                            maplibreMap!!.addMarker(MarkerOptions().position(businessLatLng))
+                            maplibreMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                                businessLatLng!!, 15.0))
+                        }
+
+                    }
 
                     binding.etBusinessName.setText(binding.tvBusinessName.text)
                     binding.etBusinessDescription.setText(binding.tvBusinessDescription.text)
@@ -176,14 +187,15 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         binding.tvBusinessQuestion.visibility = View.VISIBLE
         binding.radioGroupBusiness.visibility = View.VISIBLE
 
-        toggleField(binding.tvUserName, binding.etUserName)
-        toggleField(binding.tvUserPhone, binding.etUserPhone)
+        toggleField(binding.tvUserName, binding.layoutUserName)
+        toggleField(binding.tvUserPhone, binding.layoutUserPhone)
 
         if (!businessId.isNullOrEmpty()) {
             binding.radioBusinessYes.isChecked = true
         }
 
         toggleBusinessFields()
+        enableUserLocation()
     }
 
     private fun saveProfileChanges() {
@@ -193,7 +205,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
             val updatedData = mutableMapOf(
                 "fullName" to binding.etUserName.text.toString(),
-                "email" to binding.etUserEmail.text.toString(),
+                "email" to binding.tvUserEmail.text,
                 "phone" to binding.etUserPhone.text.toString()
             )
 
@@ -212,8 +224,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             updateFirestore(updatedData)
             loadProfileData()
 
-            toggleField(binding.tvUserName, binding.etUserName)
-            toggleField(binding.tvUserPhone, binding.etUserPhone)
+            toggleField(binding.tvUserName, binding.layoutUserName)
+            toggleField(binding.tvUserPhone, binding.layoutUserPhone)
 
             binding.tvBusinessQuestion.visibility = View.GONE
             binding.radioGroupBusiness.visibility = View.GONE
@@ -242,9 +254,9 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
         binding.cardBusinessInfo.visibility = if (shouldShowBusinessFields) View.VISIBLE else View.GONE
         if(shouldShowBusinessFields) {
-            toggleField(binding.tvBusinessName, binding.etBusinessName)
-            toggleField(binding.tvBusinessDescription, binding.etBusinessDescription)
-            toggleField(binding.tvBusinessAddress, binding.etBusinessAddress)
+            toggleField(binding.tvBusinessName, binding.layoutBusinessName)
+            toggleField(binding.tvBusinessDescription, binding.layoutBusinessDescription)
+            toggleField(binding.tvBusinessAddress, binding.layoutBusinessAddress)
             maplibreMap?.uiSettings?.setAllGesturesEnabled(true)
 
         }
@@ -302,10 +314,20 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 //            )
         )
 
-        val businessRef = firestore.collection("businesses").document()
-        businessRef.set(businessData)
-            .addOnSuccessListener { continuation.resume(businessRef.id) }
-            .addOnFailureListener { continuation.resume(null) }
+        if (!businessId.isNullOrEmpty()) {
+            firestore.collection("businesses").document(businessId!!)
+                .update(businessData)
+                .addOnSuccessListener { continuation.resume(businessId) }
+                .addOnFailureListener { continuation.resumeWithException(it) }
+        } else {
+            val newBusinessRef = firestore.collection("businesses").document()
+            newBusinessRef.set(businessData)
+                .addOnSuccessListener {
+                    businessId = newBusinessRef.id
+                    continuation.resume(businessId)
+                }
+                .addOnFailureListener { continuation.resumeWithException(it) }
+        }
     }
 
     private suspend fun deleteBusinessIfNeeded() {

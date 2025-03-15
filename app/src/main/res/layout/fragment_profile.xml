@@ -33,29 +33,29 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etUserName"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layoutUserName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone"
+            android:hint="@string/full_name"
             app:layout_constraintTop_toBottomOf="@id/tvUserName"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            app:layout_constraintEnd_toEndOf="parent"
+            android:visibility="gone">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etUserName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPersonName"
+                android:enabled="true" />
+        </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
             android:id="@+id/tvUserEmail"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/etUserName"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etUserEmail"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/tvUserEmail"
+            app:layout_constraintTop_toBottomOf="@id/layoutUserName"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
@@ -63,18 +63,27 @@
             android:id="@+id/tvUserPhone"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/etUserEmail"
+            app:layout_constraintTop_toBottomOf="@id/tvUserEmail"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etUserPhone"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layoutUserPhone"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone"
+            android:hint="@string/phone"
             app:layout_constraintTop_toBottomOf="@id/tvUserPhone"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            app:layout_constraintEnd_toEndOf="parent"
+            android:visibility="gone">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etUserPhone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="phone"
+                android:enabled="true"/>
+        </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
             android:id="@+id/tvBusinessQuestion"
@@ -83,7 +92,7 @@
             android:text="@string/is_this_a_business_account"
             android:textSize="16sp"
             android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/etUserPhone"
+            app:layout_constraintTop_toBottomOf="@id/layoutUserPhone"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
@@ -132,28 +141,56 @@
                     android:layout_height="wrap_content"
                     android:textSize="18sp"
                     android:textStyle="bold"/>
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etBusinessName"
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layoutBusinessName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:visibility="gone"/>
+                    android:hint="@string/business_name">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etBusinessName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:enabled="true"/>
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView android:id="@+id/tvBusinessDescription"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
-                <com.google.android.material.textfield.TextInputEditText android:id="@+id/etBusinessDescription"
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layoutBusinessDescription"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:visibility="gone"/>
+                    android:hint="@string/business_description">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etBusinessDescription"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:enabled="true"/>
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView android:id="@+id/tvBusinessAddress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
-                <com.google.android.material.textfield.TextInputEditText android:id="@+id/etBusinessAddress"
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layoutBusinessAddress"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:visibility="gone"/>
+                    android:hint="@string/business_address">
 
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etBusinessAddress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:enabled="true"/>
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <org.maplibre.android.maps.MapView
                     android:id="@+id/mapViewBusinessLocation"
