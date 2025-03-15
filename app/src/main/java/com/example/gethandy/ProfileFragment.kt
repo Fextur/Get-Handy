@@ -23,7 +23,9 @@ import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
 import com.example.gethandy.databinding.FragmentProfileBinding
+import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
+import com.example.gethandy.utils.showSnackbar
 import com.firebase.geofire.GeoFireUtils
 import com.firebase.geofire.GeoLocation
 import com.google.firebase.auth.FirebaseAuth
@@ -137,7 +139,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 }
                 professionAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, filteredList)
                 binding.etBusinessProfession.setAdapter(professionAdapter)
-                binding.etBusinessProfession.showDropDown() // Ensure dropdown is always visible
+                binding.etBusinessProfession.showDropDown()
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -160,11 +162,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 Log.e("ProfileFragment", "Error loading professions: ${e.message}")
             }
     }
-
-
-
-
-
 
     private fun loadProfileData() {
         if(userId === null) return;
@@ -260,7 +257,72 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         if(maplibreMap !== null) enableUserLocation()
     }
 
+    private fun isProfileValid(): Boolean {
+        val fullName = binding.etUserName.text.toString().trim()
+        val phone = binding.etUserPhone.text.toString().trim()
+
+        if (fullName.isEmpty()) {
+            binding.layoutUserName.error = getString(R.string.error_full_name_required)
+            return false
+        } else {
+            binding.layoutUserName.error = null
+        }
+
+        if (!isValidPhoneNumber(phone)) {
+            binding.layoutUserPhone.error = getString(R.string.error_invalid_phone)
+            return false
+        } else {
+            binding.layoutUserPhone.error = null
+        }
+
+        if (binding.radioBusinessYes.isChecked) {
+            val businessName = binding.etBusinessName.text.toString().trim()
+            val address = binding.etBusinessAddress.text.toString().trim()
+            val profession = binding.etBusinessProfession.text.toString().trim()
+
+            if (businessName.isEmpty()) {
+                binding.layoutBusinessName.error = getString(R.string.error_business_name_required)
+                return false
+            } else {
+                binding.layoutBusinessName.error = null
+            }
+
+            if (address.isEmpty()) {
+                binding.layoutBusinessAddress.error = getString(R.string.error_business_address_required)
+                return false
+            } else {
+                binding.layoutBusinessAddress.error = null
+            }
+
+            if (profession.isEmpty() || !professionList.contains(profession)) {
+                binding.layoutBusinessProfession.error = getString(R.string.error_invalid_profession)
+                return false
+            } else {
+                binding.layoutBusinessProfession.error = null
+            }
+
+            if (businessLatLng == null) {
+                showErrorToast(getString(R.string.error_select_location))
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private fun isValidPhoneNumber(phone: String): Boolean {
+        val regex = Regex("^\\+?[0-9]{7,15}\$")
+        return regex.matches(phone)
+    }
+
+    private fun showErrorToast(message: String) {
+        showSnackbar(binding.root, message, SnackbarType.ERROR)
+    }
+
+
     private fun saveProfileChanges() {
+        if (!isProfileValid()) return
+
         lifecycleScope.launch {
             isEditing = false
             binding.btnEditProfile.text = getString(R.string.edit_profile)
@@ -291,6 +353,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
             binding.tvBusinessQuestion.visibility = View.GONE
             binding.radioGroupBusiness.visibility = View.GONE
+            binding.etBusinessProfession.dismissDropDown()
+
         }
     }
 

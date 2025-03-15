@@ -61,6 +61,12 @@
     <string name="invalid_credentials">Invalid email or password</string>
     <string name="save_profile">Save Profile</string>
     <string name="select_profession">Select Profession</string>
+    <string name="error_full_name_required">Full name is required</string>
+    <string name="error_invalid_phone">Enter a valid phone number</string>
+    <string name="error_business_name_required">Business name is required</string>
+    <string name="error_business_address_required">Business address is required</string>
+    <string name="error_invalid_profession">Select a valid profession</string>
+    <string name="error_select_location">Select a business location on the map</string>
 
 
 </resources>

@@ -74,7 +74,7 @@ class SignUpFragment : Fragment() {
             binding.etEmail.error = getString(R.string.valid_email_required)
             return false
         }
-        if (phone.length < 9 || !phone.matches(Regex("^[+0-9-]*\$"))) {
+        if (phone.length < 9 || !phone.matches(Regex("^\\+?[0-9]{7,15}\$"))) {
             binding.etPhone.error = getString(R.string.valid_phone_required)
             return false
         }
