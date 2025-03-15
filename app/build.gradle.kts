@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.services)
+    id("kotlin-kapt")
+
 }
 
 android {
@@ -27,7 +29,15 @@ android {
         }
 
         val maplibreApiKey = properties.getProperty("MAPLIBRE_API_KEY", "")
+        val cloudinaryCloudName = properties.getProperty("CLOUDINARY_CLOUD_NAME", "")
+        val cloudinaryApiKey = properties.getProperty("CLOUDINARY_API_KEY", "")
+        val cloudinaryApiSecret = properties.getProperty("CLOUDINARY_API_SECRET", "")
+
         buildConfigField("String", "MAPLIBRE_API_KEY", "\"$maplibreApiKey\"")
+        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"$cloudinaryCloudName\"")
+        buildConfigField("String", "CLOUDINARY_API_KEY", "\"$cloudinaryApiKey\"")
+        buildConfigField("String", "CLOUDINARY_API_SECRET", "\"$cloudinaryApiSecret\"")
+
     }
 
     buildTypes {
@@ -77,5 +87,8 @@ dependencies {
     implementation(libs.com.google.firebase.firebase.auth)
     implementation(libs.maplibre)
     implementation(libs.play.services.location)
+    implementation(libs.glide)
+    kapt(libs.compiler)
+    implementation(libs.cloudinary.android)
 
 }

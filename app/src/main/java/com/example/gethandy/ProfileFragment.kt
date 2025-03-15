@@ -5,6 +5,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,6 +13,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.bumptech.glide.Glide
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import com.example.gethandy.databinding.FragmentProfileBinding
 import com.example.gethandy.utils.UserManager
 import com.google.firebase.auth.FirebaseAuth
@@ -51,6 +56,21 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         return binding.root
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        try {
+            MediaManager.get()
+        } catch (e: Exception) {
+            val config: HashMap<String, String> = hashMapOf(
+                "cloud_name" to BuildConfig.CLOUDINARY_CLOUD_NAME,
+                "api_key" to BuildConfig.CLOUDINARY_API_KEY,
+                "api_secret" to BuildConfig.CLOUDINARY_API_SECRET
+            )
+            MediaManager.init(requireContext(), config)
+        }
+    }
+
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -83,7 +103,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     private fun loadProfileData() {
         if(userId === null) return;
-
+        showLoading()
         firestore.collection("users").document(userId!!).get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
@@ -94,12 +114,20 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                     binding.etUserName.setText(binding.tvUserName.text)
                     binding.etUserEmail.setText(binding.tvUserEmail.text)
                     binding.etUserPhone.setText(binding.tvUserPhone.text)
+                    val profileImageUrl = document.getString("profilePicUrl")
 
-//                    val profileImageUrl = document.getString("profileImageUrl")
-//                    if (!profileImageUrl.isNullOrEmpty()) {
-//                        Glide.with(this).load(profileImageUrl).into(binding.ivProfilePic)
-//                    }
+                    if (!profileImageUrl.isNullOrEmpty()) {
+                        Glide.with(this).load(profileImageUrl).placeholder(R.drawable.student_avatar)
+                            .error(R.drawable.student_avatar).into(binding.ivProfilePic)
+                    } else {
+                        binding.ivProfilePic.setImageResource(R.drawable.student_avatar)
+                    }
                 }
+                hideLoading()
+            }
+            .addOnFailureListener {
+                Log.e("ProfileFragment", "Error loading profile: ${it.message}")
+                hideLoading()
             }
 
 
@@ -155,6 +183,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun saveProfileChanges() {
+
         isEditing = false
         binding.btnEditProfile.text = getString(R.string.edit_profile)
 
@@ -164,11 +193,14 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             "phone" to binding.etUserPhone.text.toString()
         )
 
-        userId?.let { id ->
-            firestore.collection("users").document(id).update(updatedData as Map<String, Any>)
-                .addOnSuccessListener {
-                    loadProfileData()
-                }
+        if (profileImageUri != null) {
+
+            uploadProfileImage(profileImageUri!!) { imageUrl ->
+                if(imageUrl !== null) updatedData["profilePicUrl"] = imageUrl
+                updateFirestore(updatedData)
+            }
+        } else {
+            updateFirestore(updatedData)
         }
 
         toggleField(binding.tvUserName, binding.etUserName, false)
@@ -189,6 +221,13 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         maplibreMap?.uiSettings?.setAllGesturesEnabled(false)
     }
 
+    private fun updateFirestore(updatedData: Map<String, Any>) {
+        showLoading()
+        userId?.let { id ->
+            firestore.collection("users").document(id).update(updatedData)
+                .addOnSuccessListener { loadProfileData() }
+        }
+    }
     private fun toggleField(textView: View, editText: View, isEditing: Boolean) {
         textView.visibility = if (isEditing) View.GONE else View.VISIBLE
         editText.visibility = if (isEditing) View.VISIBLE else View.GONE
@@ -209,7 +248,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             uri?.let {
                 profileImageUri = it
                 binding.ivProfilePic.setImageURI(it)
-                uploadProfileImage(it)
             }
         }
 
@@ -217,15 +255,35 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         imagePickerLauncher.launch("image/*")
     }
 
-    private fun uploadProfileImage(uri: Uri) {
-//        val imageRef = storage.reference.child("profile_pics/${userId}.jpg")
-//        imageRef.putFile(uri)
-//            .addOnSuccessListener {
-//                imageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
-//                    firestore.collection("users").document(userId!!).update("profilePicUrl", downloadUrl.toString())
-//                }
-//            }
+    private fun uploadProfileImage(uri: Uri, callback: (String?) -> Unit) {
+        showLoading()
+
+        MediaManager.get().upload(uri)
+            .option("resource_type", "image")
+            .callback(object : UploadCallback {
+                override fun onStart(requestId: String?) {
+                }
+
+                override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {
+                }
+
+                override fun onSuccess(requestId: String?, resultData: MutableMap<Any?, Any?>?) {
+                    val imageUrl = resultData?.get("secure_url") as? String
+                    callback(imageUrl)
+                }
+
+                override fun onError(requestId: String?, error: ErrorInfo?) {
+                    callback(null)
+                }
+
+                override fun onReschedule(requestId: String?, error: ErrorInfo?) {
+                    callback(null)
+                }
+            })
+            .dispatch()
     }
+
+
 
     override fun onMapReady(maplibreMap: MapLibreMap) {
         this.maplibreMap = maplibreMap
@@ -286,6 +344,16 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         super.onDestroyView()
         binding.mapViewBusinessLocation.onDestroy()
         _binding = null
+    }
+
+    private fun showLoading() {
+        binding.progressBarProfile.visibility = View.VISIBLE
+        binding.btnEditProfile.isEnabled = false
+    }
+
+    private fun hideLoading() {
+        binding.progressBarProfile.visibility = View.GONE
+        binding.btnEditProfile.isEnabled = true
     }
 
     companion object {
