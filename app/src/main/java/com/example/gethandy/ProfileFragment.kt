@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.cloudinary.android.MediaManager
@@ -21,6 +22,7 @@ import com.example.gethandy.databinding.FragmentProfileBinding
 import com.example.gethandy.utils.UserManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -30,6 +32,9 @@ import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 
 class ProfileFragment : Fragment(), OnMapReadyCallback {
@@ -37,13 +42,12 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
 
-    private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
 
     private var isEditing = false
-    private var isBusinessAccount = false
     private var isCurrentUser = true
     private var userId: String? = null
+    private var businessId: String? = null
     private var profileImageUri: Uri? = null
     private var businessLatLng: LatLng? = null
     private var maplibreMap: MapLibreMap? = null
@@ -79,6 +83,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
         loadProfileData()
         updateButtons()
+        setBusinessFieldPlaceholders();
 
         binding.mapViewBusinessLocation.onCreate(savedInstanceState)
         binding.mapViewBusinessLocation.getMapAsync(this)
@@ -92,8 +97,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         }
 
         binding.radioGroupBusiness.setOnCheckedChangeListener { _, checkedId ->
-            isBusinessAccount = checkedId == R.id.radioBusinessYes
-            toggleBusinessFields(isBusinessAccount)
+            toggleBusinessFields()
         }
 
         binding.ivProfilePic.setOnClickListener {
@@ -110,6 +114,12 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                     binding.tvUserName.text = document.getString("fullName") ?: "N/A"
                     binding.tvUserEmail.text = document.getString("email") ?: "N/A"
                     binding.tvUserPhone.text = document.getString("phone") ?: "N/A"
+                    businessId = document.getString("businessId")
+
+                    if (!businessId.isNullOrEmpty()) {
+                        loadBusinessData(businessId!!)
+                    }
+                    toggleBusinessFields()
 
                     binding.etUserName.setText(binding.tvUserName.text)
                     binding.etUserEmail.setText(binding.tvUserEmail.text)
@@ -129,34 +139,33 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 Log.e("ProfileFragment", "Error loading profile: ${it.message}")
                 hideLoading()
             }
+    }
 
+    private fun loadBusinessData(businessId: String) {
+        firestore.collection("businesses").document(businessId).get()
+            .addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    binding.tvBusinessName.text = (doc.getString("businessName"))
+                    binding.tvBusinessDescription.text = (doc.getString("address"))
+                    binding.tvBusinessAddress.text = (doc.getString("description"))
+//                    binding.etBusinessProfession.setText(doc.getString("profession"))
+//                    businessLatLng = doc.getString("location")
 
-        isBusinessAccount = !isCurrentUser
-
-        if (isBusinessAccount) {
-            val businessName = "Doe Plumbing"
-            val businessDescription = "Professional plumbing services"
-            val businessAddress = "123 Main Street"
-            businessLatLng = LatLng(32.0853, 34.7818)
-
-            binding.etBusinessName.setText(businessName)
-            binding.etBusinessDescription.setText(businessDescription)
-            binding.etBusinessAddress.setText(businessAddress)
-        } else {
-            businessLatLng = null
-        }
-
-        setBusinessFieldPlaceholders()
-        toggleBusinessFields(isBusinessAccount)
+                    binding.etBusinessName.setText(binding.tvBusinessName.text)
+                    binding.etBusinessDescription.setText(binding.tvBusinessDescription.text)
+                    binding.etBusinessAddress.setText(binding.tvBusinessAddress.text)
+                }
+            }
     }
 
     private fun updateButtons() {
         if (isCurrentUser) {
             binding.btnEditProfile.visibility = View.VISIBLE
             binding.btnBookAppointment.visibility = View.GONE
-        } else {
+        }  else {
             binding.btnEditProfile.visibility = View.GONE
-            binding.btnBookAppointment.visibility = View.VISIBLE
+            binding.btnBookAppointment.visibility =
+                if (businessId.isNullOrEmpty()) View.GONE else View.VISIBLE
         }
     }
 
@@ -167,74 +176,78 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         binding.tvBusinessQuestion.visibility = View.VISIBLE
         binding.radioGroupBusiness.visibility = View.VISIBLE
 
-        toggleField(binding.tvUserName, binding.etUserName, true)
-        toggleField(binding.tvUserEmail, binding.etUserEmail, false)
-        toggleField(binding.tvUserPhone, binding.etUserPhone, true)
+        toggleField(binding.tvUserName, binding.etUserName)
+        toggleField(binding.tvUserPhone, binding.etUserPhone)
 
-        if (isBusinessAccount) {
-            toggleField(binding.tvBusinessName, binding.etBusinessName, true)
-            toggleField(binding.tvBusinessDescription, binding.etBusinessDescription, true)
-            toggleField(binding.tvBusinessAddress, binding.etBusinessAddress, true)
+        if (!businessId.isNullOrEmpty()) {
+            binding.radioBusinessYes.isChecked = true
         }
 
-        maplibreMap?.uiSettings?.setAllGesturesEnabled(true)
-
-        toggleBusinessFields(isBusinessAccount)
+        toggleBusinessFields()
     }
 
     private fun saveProfileChanges() {
+        lifecycleScope.launch {
+            isEditing = false
+            binding.btnEditProfile.text = getString(R.string.edit_profile)
 
-        isEditing = false
-        binding.btnEditProfile.text = getString(R.string.edit_profile)
+            val updatedData = mutableMapOf(
+                "fullName" to binding.etUserName.text.toString(),
+                "email" to binding.etUserEmail.text.toString(),
+                "phone" to binding.etUserPhone.text.toString()
+            )
 
-        val updatedData = mutableMapOf(
-            "fullName" to binding.etUserName.text.toString(),
-            "email" to binding.etUserEmail.text.toString(),
-            "phone" to binding.etUserPhone.text.toString()
-        )
-
-        if (profileImageUri != null) {
-
-            uploadProfileImage(profileImageUri!!) { imageUrl ->
-                if(imageUrl !== null) updatedData["profilePicUrl"] = imageUrl
-                updateFirestore(updatedData)
+            profileImageUri?.let { uri ->
+                updatedData["profilePicUrl"] = uploadProfileImage(uri) ?: ""
+                profileImageUri = null
             }
-        } else {
+
+            updatedData["businessId"] = if (binding.radioBusinessYes.isChecked) {
+                saveOrUpdateBusiness() ?: ""
+            } else {
+                deleteBusinessIfNeeded()
+                ""
+            }
+
             updateFirestore(updatedData)
+            loadProfileData()
+
+            toggleField(binding.tvUserName, binding.etUserName)
+            toggleField(binding.tvUserPhone, binding.etUserPhone)
+
+            binding.tvBusinessQuestion.visibility = View.GONE
+            binding.radioGroupBusiness.visibility = View.GONE
         }
-
-        toggleField(binding.tvUserName, binding.etUserName, false)
-        toggleField(binding.tvUserEmail, binding.etUserEmail, false)
-        toggleField(binding.tvUserPhone, binding.etUserPhone, false)
-
-        if (isBusinessAccount) {
-            toggleField(binding.tvBusinessName, binding.etBusinessName, false)
-            toggleField(binding.tvBusinessDescription, binding.etBusinessDescription, false)
-            toggleField(binding.tvBusinessAddress, binding.etBusinessAddress, false)
-        }
-
-        binding.tvBusinessQuestion.visibility = View.GONE
-        binding.radioGroupBusiness.visibility = View.GONE
-
-        toggleBusinessFields(isBusinessAccount)
-
-        maplibreMap?.uiSettings?.setAllGesturesEnabled(false)
     }
 
-    private fun updateFirestore(updatedData: Map<String, Any>) {
-        showLoading()
+    private suspend fun updateFirestore(updatedData: Map<String, Any>) = suspendCoroutine { continuation ->
         userId?.let { id ->
             firestore.collection("users").document(id).update(updatedData)
-                .addOnSuccessListener { loadProfileData() }
-        }
+                .addOnSuccessListener { continuation.resume(Unit) }
+                .addOnFailureListener { continuation.resumeWithException(it) }
+        } ?: continuation.resumeWithException(Exception("User ID is null"))
     }
-    private fun toggleField(textView: View, editText: View, isEditing: Boolean) {
+
+    private fun toggleField(textView: View, editText: View) {
         textView.visibility = if (isEditing) View.GONE else View.VISIBLE
         editText.visibility = if (isEditing) View.VISIBLE else View.GONE
     }
 
-    private fun toggleBusinessFields(isBusiness: Boolean) {
-        binding.cardBusinessInfo.visibility = if (isBusiness) View.VISIBLE else View.GONE
+    private fun toggleBusinessFields() {
+        val shouldShowBusinessFields = if (isEditing) {
+            binding.radioBusinessYes.isChecked
+        } else {
+            !businessId.isNullOrEmpty()
+        }
+
+        binding.cardBusinessInfo.visibility = if (shouldShowBusinessFields) View.VISIBLE else View.GONE
+        if(shouldShowBusinessFields) {
+            toggleField(binding.tvBusinessName, binding.etBusinessName)
+            toggleField(binding.tvBusinessDescription, binding.etBusinessDescription)
+            toggleField(binding.tvBusinessAddress, binding.etBusinessAddress)
+            maplibreMap?.uiSettings?.setAllGesturesEnabled(true)
+
+        }
     }
 
     private fun setBusinessFieldPlaceholders() {
@@ -255,34 +268,52 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         imagePickerLauncher.launch("image/*")
     }
 
-    private fun uploadProfileImage(uri: Uri, callback: (String?) -> Unit) {
+    private suspend fun uploadProfileImage(uri: Uri): String? = suspendCoroutine { continuation ->
         showLoading()
-
         MediaManager.get().upload(uri)
             .option("resource_type", "image")
             .callback(object : UploadCallback {
-                override fun onStart(requestId: String?) {
-                }
-
-                override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {
-                }
-
                 override fun onSuccess(requestId: String?, resultData: MutableMap<Any?, Any?>?) {
                     val imageUrl = resultData?.get("secure_url") as? String
-                    callback(imageUrl)
+                    continuation.resume(imageUrl)
                 }
 
                 override fun onError(requestId: String?, error: ErrorInfo?) {
-                    callback(null)
+                    continuation.resume(null)
                 }
 
-                override fun onReschedule(requestId: String?, error: ErrorInfo?) {
-                    callback(null)
-                }
+                override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
+                override fun onStart(requestId: String?) {}
+                override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
             })
             .dispatch()
     }
 
+    private suspend fun saveOrUpdateBusiness(): String? = suspendCoroutine { continuation ->
+        val businessData = mapOf(
+            "userId" to userId,
+            "businessName" to binding.etBusinessName.text.toString(),
+            "description" to binding.etBusinessDescription.text.toString(),
+            "address" to binding.etBusinessAddress.text.toString(),
+//            "profession" to binding.etBusinessProfession.text.toString(),
+            "location" to businessLatLng,
+//            "geoHash" to GeoFireUtils.getGeoHashForLocation(
+//                GeoLocation(businessLatLng!!.latitude, businessLatLng!!.longitude)
+//            )
+        )
+
+        val businessRef = firestore.collection("businesses").document()
+        businessRef.set(businessData)
+            .addOnSuccessListener { continuation.resume(businessRef.id) }
+            .addOnFailureListener { continuation.resume(null) }
+    }
+
+    private suspend fun deleteBusinessIfNeeded() {
+        businessId?.let {
+            firestore.collection("businesses").document(it).delete()
+            businessId = null
+        }
+    }
 
 
     override fun onMapReady(maplibreMap: MapLibreMap) {
@@ -303,8 +334,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             }
             true
         }
-
-        maplibreMap.uiSettings.setAllGesturesEnabled(false)
     }
 
     private fun enableUserLocation() {

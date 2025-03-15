@@ -4,6 +4,8 @@ androidPluginAnnotation = "2.0.0"
 cloudinaryAndroid = "3.0.2"
 firebaseAuth = "23.2.0"
 firebaseBom = "33.10.0"
+geofireAndroid = "3.1.0"
+geohashKt = "1.1.0"
 glide = "4.16.0"
 kotlin = "2.0.0"
 coreKtx = "1.15.0"
@@ -27,6 +29,8 @@ playServicesLocation = "21.3.0"
 android-plugin-annotation = { module = "org.maplibre.gl:android-plugin-annotation", version.ref = "androidPluginAnnotation" }
 cloudinary-android = { module = "com.cloudinary:cloudinary-android", version.ref = "cloudinaryAndroid" }
 compiler = { module = "com.github.bumptech.glide:compiler", version.ref = "glide" }
+geofire-android = { module = "com.github.firebase:geofire-android", version.ref = "geofireAndroid" }
+geohash-kt = { module = "com.github.chrisbanes:geohash-kt", version.ref = "geohashKt" }
 glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
 maplibre = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibreAndroidSdk" }
 com-google-firebase-firebase-auth = { module = "com.google.firebase:firebase-auth", version.ref = "firebaseAuth" }
