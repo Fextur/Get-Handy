@@ -1,6 +1,5 @@
-package com.example.gethandy
+package com.example.gethandy.ui
 
-import android.content.Intent
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -22,14 +21,14 @@ import com.bumptech.glide.Glide
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import com.example.gethandy.BuildConfig
+import com.example.gethandy.R
 import com.example.gethandy.databinding.FragmentProfileBinding
 import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
 import com.example.gethandy.utils.showSnackbar
 import com.firebase.geofire.GeoFireUtils
 import com.firebase.geofire.GeoLocation
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import org.maplibre.android.annotations.MarkerOptions

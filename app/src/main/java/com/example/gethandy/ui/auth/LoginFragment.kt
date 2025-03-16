@@ -1,12 +1,12 @@
-package com.example.gethandy
+package com.example.gethandy.ui
 
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.example.gethandy.R
 import com.example.gethandy.databinding.FragmentLoginBinding
 import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager

@@ -1,4 +1,4 @@
-package com.example.gethandy.adapter
+package com.example.gethandy.adapters
 
 import android.location.Location
 import android.view.LayoutInflater
@@ -8,7 +8,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.example.gethandy.R
-import com.example.gethandy.model.Business
+import com.example.gethandy.data.model.Business
 
 class BusinessAdapter(
     private var businesses: List<Business>,

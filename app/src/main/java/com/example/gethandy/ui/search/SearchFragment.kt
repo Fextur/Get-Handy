@@ -1,4 +1,4 @@
-package com.example.gethandy
+package com.example.gethandy.ui
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,8 +9,9 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.gethandy.adapter.BusinessAdapter
-import com.example.gethandy.model.Business
+import com.example.gethandy.R
+import com.example.gethandy.adapters.BusinessAdapter
+import com.example.gethandy.data.model.Business
 import com.google.android.material.chip.ChipGroup
 
 class SearchFragment : Fragment() {

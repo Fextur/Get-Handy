@@ -1,4 +1,4 @@
-package com.example.gethandy
+package com.example.gethandy.ui
 
 import android.app.AlertDialog
 import android.os.Bundle
@@ -8,8 +8,9 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.RecyclerView
-import com.example.gethandy.adapter.AppointmentsAdapter
-import com.example.gethandy.model.Appointment
+import com.example.gethandy.R
+import com.example.gethandy.adapters.AppointmentsAdapter
+import com.example.gethandy.data.model.Appointment
 
 class AppointmentsFragment : Fragment() {
 

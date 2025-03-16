@@ -1,4 +1,4 @@
-package com.example.gethandy.adapter
+package com.example.gethandy.adapters
 
 import android.view.LayoutInflater
 import android.view.View
@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.gethandy.R
-import com.example.gethandy.model.Appointment
+import com.example.gethandy.data.model.Appointment
 import com.google.android.material.button.MaterialButton
 
 class AppointmentsAdapter(
