@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.services)
     id("kotlin-kapt")
+    alias(libs.plugins.androidx.navigation.safeargs)
 
 }
 
@@ -90,8 +91,11 @@ dependencies {
     implementation(libs.glide)
     kapt(libs.compiler)
     implementation(libs.cloudinary.android)
-
     implementation(libs.geofire.android.common)
-
+    implementation(libs.androidx.navigation.fragment.ktx.v276)
+    implementation(libs.androidx.navigation.ui)
+    implementation(libs.androidx.room.runtime)
+    kapt(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.ktx)
 
 }

@@ -1,4 +1,4 @@
-package com.example.gethandy.adapters
+package com.example.gethandy.ui.adapters
 
 import android.view.LayoutInflater
 import android.view.View
@@ -7,10 +7,11 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.gethandy.R
 import com.example.gethandy.data.model.Appointment
+import com.example.gethandy.data.model.AppointmentWithDetails
 import com.google.android.material.button.MaterialButton
 
 class AppointmentsAdapter(
-    private val appointments: MutableList<Appointment>,
+    private val appointments: MutableList<AppointmentWithDetails>,
     private val onProfileClick: (String) -> Unit,
     private val onCancelClick: (Appointment) -> Unit
 ) : RecyclerView.Adapter<AppointmentsAdapter.AppointmentViewHolder>() {
@@ -22,8 +23,8 @@ class AppointmentsAdapter(
     }
 
     override fun onBindViewHolder(holder: AppointmentViewHolder, position: Int) {
-        val appointment = appointments[position]
-        holder.bind(appointment)
+        val appointmentWithDetails = appointments[position]
+        holder.bind(appointmentWithDetails)
     }
 
     override fun getItemCount(): Int = appointments.size
@@ -34,18 +35,18 @@ class AppointmentsAdapter(
         private val tvWith: TextView = itemView.findViewById(R.id.tvAppointmentWith)
         private val btnCancel: MaterialButton = itemView.findViewById(R.id.btnCancelAppointment)
 
-        fun bind(appointment: Appointment) {
+        fun bind(appointmentWithDetails: AppointmentWithDetails) {
+            val appointment = appointmentWithDetails.appointment
+            val user = appointmentWithDetails.user
+
             tvDate.text = appointment.date
             tvTime.text = appointment.time
-            tvWith.text = itemView.context.getString(R.string.appointment_with, appointment.personName)
+            tvWith.text = itemView.context.getString(R.string.appointment_with, user.fullName)
 
-
-            // Navigate to profile when clicking the card
             itemView.setOnClickListener {
-                onProfileClick(appointment.personId)
+                onProfileClick(appointment.businessId)
             }
 
-            // Show confirmation popup when clicking "Cancel"
             btnCancel.setOnClickListener {
                 onCancelClick(appointment)
             }

@@ -1,4 +1,4 @@
-package com.example.gethandy.ui
+package com.example.gethandy.ui.booking
 
 import android.os.Bundle
 import android.view.LayoutInflater

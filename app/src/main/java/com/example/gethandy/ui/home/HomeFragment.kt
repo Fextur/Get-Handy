@@ -1,9 +1,10 @@
-package com.example.gethandy.ui
+package com.example.gethandy.ui.home
 
 import android.Manifest
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,14 +12,19 @@ import android.widget.PopupMenu
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.example.gethandy.BuildConfig
 import com.example.gethandy.R
+import com.example.gethandy.TAG
+import com.example.gethandy.databinding.FragmentHomeBinding
+import com.example.gethandy.utils.LoadingUtil
+import com.example.gethandy.utils.NetworkResult
+import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
+import com.example.gethandy.utils.showSnackbar
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.firebase.auth.FirebaseAuth
 import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
 import org.maplibre.android.camera.CameraPosition
@@ -29,13 +35,14 @@ import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.OnMapReadyCallback
 
-
 class HomeFragment : Fragment(), OnMapReadyCallback {
+    private var _binding: FragmentHomeBinding? = null
+    private val binding get() = _binding!!
 
-    private lateinit var mapView: MapView
+    private val viewModel: HomeViewModel by viewModels()
+
     private lateinit var maplibreMap: MapLibreMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
@@ -43,30 +50,72 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         super.onCreate(savedInstanceState)
 
         MapLibre.getInstance(requireContext(), BuildConfig.MAPLIBRE_API_KEY, WellKnownTileServer.MapLibre)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
     }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val view = inflater.inflate(R.layout.fragment_home, container, false)
-        mapView = view.findViewById(R.id.mapView)
-        mapView.onCreate(savedInstanceState)
-        mapView.getMapAsync(this)
-        return view
+        _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        binding.mapView.onCreate(savedInstanceState)
+        binding.mapView.getMapAsync(this)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
+        setupListeners()
+        observeViewModel()
+    }
 
-        view.findViewById<FloatingActionButton>(R.id.btnSearch).setOnClickListener {
+    private fun setupListeners() {
+        binding.btnSearch.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_search)
         }
 
-        view.findViewById<FloatingActionButton>(R.id.btnMenu).setOnClickListener { button ->
+        binding.btnMenu.setOnClickListener { button ->
             showPopupMenu(button)
+        }
+    }
+
+    private fun observeViewModel() {
+        viewModel.nearbyBusinesses.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Loading -> {
+                    LoadingUtil.showLoading(requireContext(), true)
+                }
+                is NetworkResult.Success -> {
+                    LoadingUtil.showLoading(requireContext(), false)
+                    displayBusinessesOnMap(result.data)
+                }
+                is NetworkResult.Error -> {
+                    LoadingUtil.showLoading(requireContext(), false)
+                    showSnackbar(binding.root, result.message, SnackbarType.ERROR)
+                }
+            }
+        }
+
+        viewModel.currentLocation.observe(viewLifecycleOwner) { location ->
+            updateMapLocation(location)
+        }
+
+        viewModel.localBusinessesWithOwners.observe(viewLifecycleOwner) { businessesWithOwners ->
+            Log.d(TAG,"Loaded ${businessesWithOwners.size} businesses with owners from local database")
+        }
+    }
+
+    private fun displayBusinessesOnMap(businesses: List<com.example.gethandy.data.model.Business>) {
+        maplibreMap.clear()
+
+        businesses.forEach { business ->
+            val markerOptions = org.maplibre.android.annotations.MarkerOptions()
+                .position(business.location)
+                .title(business.businessName)
+                .snippet(business.profession)
+
+            maplibreMap.addMarker(markerOptions)
         }
     }
 
@@ -77,7 +126,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_profile -> {
-                    findNavController().navigate(R.id.action_home_to_profile)
+                    findNavController().navigate(HomeFragmentDirections.actionHomeToProfile(null))
                     true
                 }
                 R.id.action_appointments -> {
@@ -85,7 +134,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
                     true
                 }
                 R.id.action_logout -> {
-                    FirebaseAuth.getInstance().signOut()  // Firebase logout
+                    viewModel.logout()
                     UserManager.clearUser(requireContext())
                     findNavController().navigate(R.id.action_home_to_login)
                     true
@@ -109,6 +158,9 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
     ) { isGranted ->
         if (isGranted) {
             enableUserLocation()
+        } else {
+            Log.d(TAG,"Location permission denied")
+            showSnackbar(binding.root, getString(R.string.location_permission_denied), SnackbarType.WARNING)
         }
     }
 
@@ -139,17 +191,17 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
 
         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
             location?.let {
-                updateMapLocation(it)
+                val userLatLng = LatLng(location.latitude, location.longitude)
+                viewModel.setCurrentLocation(userLatLng)
             }
         }
     }
 
-    private fun updateMapLocation(location: Location) {
-        val userLatLng = LatLng(location.latitude, location.longitude)
+    private fun updateMapLocation(location: LatLng) {
         maplibreMap.animateCamera(
             CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
-                    .target(userLatLng)
+                    .target(location)
                     .zoom(15.0)
                     .tilt(30.0)
                     .bearing(0.0)
@@ -158,9 +210,39 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         )
     }
 
-    override fun onStart() { super.onStart(); mapView.onStart() }
-    override fun onResume() { super.onResume(); mapView.onResume() }
-    override fun onPause() { super.onPause(); mapView.onPause() }
-    override fun onStop() { super.onStop(); mapView.onStop() }
-    override fun onDestroy() { super.onDestroy(); mapView.onDestroy() }
+    override fun onStart() {
+        super.onStart()
+        binding.mapView.onStart()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        binding.mapView.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        binding.mapView.onPause()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        binding.mapView.onStop()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        binding.mapView.onDestroy()
+        _binding = null
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        binding.mapView.onSaveInstanceState(outState)
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        binding.mapView.onLowMemory()
+    }
 }

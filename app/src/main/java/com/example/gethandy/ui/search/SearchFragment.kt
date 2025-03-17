@@ -1,4 +1,4 @@
-package com.example.gethandy.ui
+package com.example.gethandy.ui.search
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -10,9 +10,13 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.gethandy.R
-import com.example.gethandy.adapters.BusinessAdapter
+import com.example.gethandy.ui.adapters.BusinessAdapter
 import com.example.gethandy.data.model.Business
+import com.example.gethandy.ui.appointments.AppointmentsFragmentDirections
+import com.firebase.geofire.GeoFireUtils
+import com.firebase.geofire.GeoLocation
 import com.google.android.material.chip.ChipGroup
+import org.maplibre.android.geometry.LatLng
 
 class SearchFragment : Fragment() {
 
@@ -21,10 +25,18 @@ class SearchFragment : Fragment() {
     private lateinit var etSearch: EditText
     private lateinit var chipGroupFilters: ChipGroup
 
+    // Create sample business data that matches our new model
     private val businessesList = mutableListOf(
-        Business("1", "Plumber Pro", "Plumber", 32.0853, 34.7818),
-        Business("2", "Electric Fix", "Electrician", 32.0723, 34.7741),
-        Business("3", "WoodWorks", "Carpenter", 32.0700, 34.7800)
+        Business(
+            businessId = "1",
+            userId = "SIRVTNalHFfLjpEr39iVUunuPft2",
+            businessName = "Plumber Pro",
+            description = "Expert plumbing services for all home and commercial needs.",
+            profession = "Plumber",
+            address = "123 Water Street, Tel Aviv",
+            location = LatLng(32.0853, 34.7818),
+            geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(32.0853, 34.7818))
+        )
     )
 
     private var userLat = 32.0853  // Default Tel Aviv
@@ -45,10 +57,9 @@ class SearchFragment : Fragment() {
         etSearch = view.findViewById(R.id.etSearch)
         chipGroupFilters = view.findViewById(R.id.chipGroupFilters)
 
-        businessAdapter = BusinessAdapter(businessesList, userLat, userLon) { businessId ->
-            findNavController().navigate(R.id.action_search_to_profile, Bundle().apply {
-                putString("userId", businessId)
-            })
+        businessAdapter = BusinessAdapter(businessesList, userLat, userLon) { userId ->
+            val action = AppointmentsFragmentDirections.actionAppointmentsToProfile(userId)
+            findNavController().navigate(action)
         }
 
         rvBusinesses.layoutManager = LinearLayoutManager(requireContext())
@@ -74,9 +85,8 @@ class SearchFragment : Fragment() {
         val filteredList = if (selectedOccupation == null) {
             businessesList
         } else {
-            businessesList.filter { it.occupation == selectedOccupation }
+            businessesList.filter { it.profession == selectedOccupation }
         }
         businessAdapter.updateList(filteredList)
     }
-
 }

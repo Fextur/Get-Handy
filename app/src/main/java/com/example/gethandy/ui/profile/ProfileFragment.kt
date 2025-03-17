@@ -1,12 +1,10 @@
-package com.example.gethandy.ui
+package com.example.gethandy.ui.profile
 
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -15,22 +13,19 @@ import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
-import com.cloudinary.android.MediaManager
-import com.cloudinary.android.callback.ErrorInfo
-import com.cloudinary.android.callback.UploadCallback
 import com.example.gethandy.BuildConfig
 import com.example.gethandy.R
+import com.example.gethandy.TAG
 import com.example.gethandy.databinding.FragmentProfileBinding
+import com.example.gethandy.utils.LoadingUtil
+import com.example.gethandy.utils.NetworkResult
 import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
 import com.example.gethandy.utils.showSnackbar
-import com.firebase.geofire.GeoFireUtils
-import com.firebase.geofire.GeoLocation
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.launch
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -40,17 +35,13 @@ import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
-
 
 class ProfileFragment : Fragment(), OnMapReadyCallback {
-
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
 
-    private val firestore = FirebaseFirestore.getInstance()
+    private val args: ProfileFragmentArgs by navArgs()
+    private val viewModel: ProfileViewModel by viewModels()
 
     private var isEditing = false
     private var isCurrentUser = true
@@ -60,13 +51,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     private var businessLatLng: LatLng? = null
     private var maplibreMap: MapLibreMap? = null
 
-    private val professionList = mutableListOf<String>()
-    private lateinit var professionAdapter: ArrayAdapter<String>
-
-
-
-
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -75,163 +59,198 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         return binding.root
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        try {
-            MediaManager.get()
-        } catch (e: Exception) {
-            val config: HashMap<String, String> = hashMapOf(
-                "cloud_name" to BuildConfig.CLOUDINARY_CLOUD_NAME,
-                "api_key" to BuildConfig.CLOUDINARY_API_KEY,
-                "api_secret" to BuildConfig.CLOUDINARY_API_SECRET
-            )
-            MediaManager.init(requireContext(), config)
-        }
-    }
-
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        userId = arguments?.getString("userId") ?: UserManager.getUserId(requireContext())
+        Log.d("ProfileFragment", "onViewCreated called ${UserManager.getUserId(requireContext())}")
+        userId = args.userId ?: UserManager.getUserId(requireContext())
         isCurrentUser = (userId == UserManager.getUserId(requireContext()))
-
-        loadProfileData()
-        updateButtons()
-        setBusinessFieldPlaceholders();
 
         binding.mapViewBusinessLocation.onCreate(savedInstanceState)
         binding.mapViewBusinessLocation.getMapAsync(this)
 
+        setupListeners()
+        setupProfessionAutocomplete()
+        observeViewModel()
+
+        userId?.let {
+            viewModel.getUserProfile(it)
+            viewModel.refreshProfessions()
+        }
+    }
+
+    private fun setupListeners() {
         binding.btnEditProfile.setOnClickListener {
             if (isEditing) saveProfileChanges() else enableEditMode()
         }
 
         binding.btnBookAppointment.setOnClickListener {
-            findNavController().navigate(R.id.action_profile_to_appointment_booking)
+            findNavController().navigate(ProfileFragmentDirections.actionProfileToAppointmentBooking())
         }
 
-        binding.radioGroupBusiness.setOnCheckedChangeListener { _, checkedId ->
+        binding.radioGroupBusiness.setOnCheckedChangeListener { _, _ ->
             toggleBusinessFields()
         }
 
         binding.ivProfilePic.setOnClickListener {
             if (isEditing) selectProfileImage()
         }
+    }
 
-        professionAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, professionList)
+    private fun setupProfessionAutocomplete() {
+        val professionAdapter = ArrayAdapter<String>(
+            requireContext(),
+            android.R.layout.simple_dropdown_item_1line,
+            mutableListOf()
+        )
         binding.etBusinessProfession.setAdapter(professionAdapter)
-
-        loadAllProfessions()
 
         binding.etBusinessProfession.setOnClickListener {
             binding.etBusinessProfession.showDropDown()
         }
 
-        binding.etBusinessProfession.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                val searchText = s.toString().trim()
-                val filteredList = if (searchText.isEmpty()) {
-                    professionList
-                } else {
-                    professionList.filter { it.contains(searchText, ignoreCase = true) }
-                }
-                professionAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, filteredList)
-                binding.etBusinessProfession.setAdapter(professionAdapter)
+        binding.etBusinessProfession.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
                 binding.etBusinessProfession.showDropDown()
             }
+        }
 
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-    }
-    private fun loadAllProfessions() {
-        firestore.collection("professions")
-            .orderBy("name")
-            .get()
-            .addOnSuccessListener { snapshot ->
-                professionList.clear()
-                for (doc in snapshot.documents) {
-                    val profession = doc.getString("name") ?: continue
-                    professionList.add(profession)
-                }
-                professionAdapter.notifyDataSetChanged()
-            }
-            .addOnFailureListener { e ->
-                Log.e("ProfileFragment", "Error loading professions: ${e.message}")
-            }
+        viewModel.professions.observe(viewLifecycleOwner) { professions ->
+            val professionNames = professions.map { it.name }
+            val adapter = ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_dropdown_item_1line,
+                professionNames
+            )
+            binding.etBusinessProfession.setAdapter(adapter)
+
+            binding.etBusinessProfession.showDropDown()
+        }
     }
 
-    private fun loadProfileData() {
-        if(userId === null) return;
-        showLoading()
-        firestore.collection("users").document(userId!!).get()
-            .addOnSuccessListener { document ->
-                if (document.exists()) {
-                    binding.tvUserName.text = document.getString("fullName") ?: "N/A"
-                    binding.tvUserEmail.text = document.getString("email") ?: "N/A"
-                    binding.tvUserPhone.text = document.getString("phone") ?: "N/A"
-                    businessId = document.getString("businessId")
+    private fun observeViewModel() {
+        userId?.let { uid ->
+            LoadingUtil.showLoading(requireContext(), true)
+            viewModel.getUserWithBusiness(uid).observe(viewLifecycleOwner) { userWithBusiness ->
+                userWithBusiness?.let { uwb ->
+                    val user = uwb.user
+                    binding.tvUserName.text = user.fullName
+                    binding.tvUserEmail.text = user.email
+                    binding.tvUserPhone.text = user.phone
 
-                    if (!businessId.isNullOrEmpty()) {
-                        loadBusinessData(businessId!!)
-                    }
-                    toggleBusinessFields()
+                    binding.etUserName.setText(user.fullName)
+                    binding.etUserPhone.setText(user.phone)
 
-                    binding.etUserName.setText(binding.tvUserName.text)
-                    binding.etUserPhone.setText(binding.tvUserPhone.text)
-                    val profileImageUrl = document.getString("profilePicUrl")
-
-                    if (!profileImageUrl.isNullOrEmpty()) {
-                        Glide.with(this).load(profileImageUrl).placeholder(R.drawable.student_avatar)
-                            .error(R.drawable.student_avatar).into(binding.ivProfilePic)
+                    if (user.profilePicUrl.isNotEmpty()) {
+                        Glide.with(this)
+                            .load(user.profilePicUrl)
+                            .placeholder(R.drawable.loading_icon)
+                            .error(R.drawable.student_avatar)
+                            .into(binding.ivProfilePic)
                     } else {
                         binding.ivProfilePic.setImageResource(R.drawable.student_avatar)
                     }
-                }
-                hideLoading()
-            }
-            .addOnFailureListener {
-                Log.e("ProfileFragment", "Error loading profile: ${it.message}")
-                hideLoading()
-            }
-    }
 
-    private fun loadBusinessData(businessId: String) {
-        firestore.collection("businesses").document(businessId).get()
-            .addOnSuccessListener { doc ->
-                if (doc.exists()) {
-                    binding.tvBusinessName.text = (doc.getString("businessName"))
-                    binding.tvBusinessDescription.text = (doc.getString("description"))
-                    binding.tvBusinessAddress.text = (doc.getString("address"))
-                    binding.tvBusinessProfession.text = (doc.getString("profession"))
-                    val locationData = doc.get("location") as? Map<*, *>
-                    if (locationData != null) {
-                        val latitude = locationData["latitude"] as? Double ?: 0.0
-                        val longitude = locationData["longitude"] as? Double ?: 0.0
-                        businessLatLng = LatLng(latitude, longitude)
-                        if(maplibreMap !== null) {
-                            maplibreMap?.clear()
-                            maplibreMap!!.addMarker(MarkerOptions().position(businessLatLng))
-                            maplibreMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                                businessLatLng!!, 15.0))
-                        }
+                    businessId = user.businessId
 
+                    val business = uwb.business
+                    if (business != null) {
+                        binding.radioBusinessYes.isChecked = true
+
+                        binding.tvBusinessName.text = business.businessName
+                        binding.tvBusinessDescription.text = business.description
+                        binding.tvBusinessAddress.text = business.address
+                        binding.tvBusinessProfession.text = business.profession
+
+                        binding.etBusinessName.setText(business.businessName)
+                        binding.etBusinessDescription.setText(business.description)
+                        binding.etBusinessAddress.setText(business.address)
+                        binding.etBusinessProfession.setText(business.profession)
+
+                        businessLatLng = business.location
+                        updateMapWithBusinessLocation()
+                    } else {
+                        binding.radioBusinessNo.isChecked = false
                     }
 
-                    binding.etBusinessName.setText(binding.tvBusinessName.text)
-                    binding.etBusinessDescription.setText(binding.tvBusinessDescription.text)
-                    binding.etBusinessAddress.setText(binding.tvBusinessAddress.text)
-                    binding.etBusinessProfession.setText(binding.tvBusinessProfession.text)
+                    toggleBusinessFields()
+                    updateButtons()
+
+                    LoadingUtil.showLoading(requireContext(), false)
                 }
             }
+        }
+
+        viewModel.userProfileState.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Loading -> {
+                    LoadingUtil.showLoading(requireContext(), true)
+                }
+                is NetworkResult.Success -> {
+                    LoadingUtil.showLoading(requireContext(), false)
+                }
+                is NetworkResult.Error -> {
+                    LoadingUtil.showLoading(requireContext(), false)
+                    Log.e(TAG, "Error loading user profile: ${result.message}")
+                    showSnackbar(binding.root, result.message, SnackbarType.ERROR)
+                }
+            }
+        }
+
+        viewModel.professions.observe(viewLifecycleOwner) { professions ->
+            val professionNames = professions.map { it.name }
+            val adapter = ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_dropdown_item_1line,
+                professionNames
+            )
+            binding.etBusinessProfession.setAdapter(adapter)
+        }
+
+        viewModel.profileUpdateState.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Loading -> {
+                    LoadingUtil.showLoading(requireContext(), true)
+                }
+                is NetworkResult.Success -> {
+                    isEditing = false
+                    binding.btnEditProfile.text = getString(R.string.edit_profile)
+
+                    toggleField(binding.tvUserName, binding.layoutUserName)
+                    toggleField(binding.tvUserPhone, binding.layoutUserPhone)
+
+                    binding.tvBusinessQuestion.visibility = View.GONE
+                    binding.radioGroupBusiness.visibility = View.GONE
+                    binding.etBusinessProfession.dismissDropDown()
+
+                    toggleBusinessFields()
+
+                    LoadingUtil.showLoading(requireContext(), false)
+                    showSnackbar(binding.root, getString(R.string.profile_update_success), SnackbarType.SUCCESS)
+                }
+                is NetworkResult.Error -> {
+                    LoadingUtil.showLoading(requireContext(), false)
+                    showSnackbar(binding.root, result.message, SnackbarType.ERROR)
+                }
+            }
+        }
+
+    }
+
+    private fun updateMapWithBusinessLocation() {
+        maplibreMap?.let { map ->
+            businessLatLng?.let { location ->
+                map.clear()
+                map.addMarker(MarkerOptions().position(location))
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.0))
+            }
+        }
     }
 
     private fun updateButtons() {
         if (isCurrentUser) {
             binding.btnEditProfile.visibility = View.VISIBLE
             binding.btnBookAppointment.visibility = View.GONE
-        }  else {
+        } else {
             binding.btnEditProfile.visibility = View.GONE
             binding.btnBookAppointment.visibility =
                 if (businessId.isNullOrEmpty()) View.GONE else View.VISIBLE
@@ -248,12 +267,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         toggleField(binding.tvUserName, binding.layoutUserName)
         toggleField(binding.tvUserPhone, binding.layoutUserPhone)
 
-        if (!businessId.isNullOrEmpty()) {
-            binding.radioBusinessYes.isChecked = true
-        }
-
         toggleBusinessFields()
-        if(maplibreMap !== null) enableUserLocation()
+        if (maplibreMap != null) enableUserLocation()
     }
 
     private fun isProfileValid(): Boolean {
@@ -293,7 +308,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 binding.layoutBusinessAddress.error = null
             }
 
-            if (profession.isEmpty() || !professionList.contains(profession)) {
+            if (profession.isEmpty()) {
                 binding.layoutBusinessProfession.error = getString(R.string.error_invalid_profession)
                 return false
             } else {
@@ -301,7 +316,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             }
 
             if (businessLatLng == null) {
-                showErrorToast(getString(R.string.error_select_location))
+                showSnackbar(binding.root, getString(R.string.error_select_location), SnackbarType.ERROR)
                 return false
             }
         }
@@ -314,55 +329,37 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         return regex.matches(phone)
     }
 
-    private fun showErrorToast(message: String) {
-        showSnackbar(binding.root, message, SnackbarType.ERROR)
-    }
-
-
     private fun saveProfileChanges() {
         if (!isProfileValid()) return
 
-        lifecycleScope.launch {
-            isEditing = false
-            binding.btnEditProfile.text = getString(R.string.edit_profile)
+        LoadingUtil.showLoading(requireContext(), true)
 
-            val updatedData = mutableMapOf(
-                "fullName" to binding.etUserName.text.toString(),
-                "email" to binding.tvUserEmail.text,
-                "phone" to binding.etUserPhone.text.toString()
+        val fullName = binding.etUserName.text.toString().trim()
+        val phone = binding.etUserPhone.text.toString().trim()
+
+        val businessDetails = if (binding.radioBusinessYes.isChecked) {
+            BusinessDetails(
+                name = binding.etBusinessName.text.toString().trim(),
+                description = binding.etBusinessDescription.text.toString().trim(),
+                address = binding.etBusinessAddress.text.toString().trim(),
+                profession = binding.etBusinessProfession.text.toString().trim(),
+                location = businessLatLng ?: LatLng(0.0, 0.0)
+            )
+        } else null
+
+        userId?.let { uid ->
+            viewModel.saveProfileChanges(
+                userId = uid,
+                fullName = fullName,
+                phone = phone,
+                isBusiness = binding.radioBusinessYes.isChecked,
+                businessId = businessId,
+                businessDetails = businessDetails,
+                profileImageUri = profileImageUri
             )
 
-            profileImageUri?.let { uri ->
-                updatedData["profilePicUrl"] = uploadProfileImage(uri) ?: ""
-                profileImageUri = null
-            }
-
-            updatedData["businessId"] = if (binding.radioBusinessYes.isChecked) {
-                saveOrUpdateBusiness() ?: ""
-            } else {
-                deleteBusinessIfNeeded()
-                ""
-            }
-
-            updateFirestore(updatedData)
-            loadProfileData()
-
-            toggleField(binding.tvUserName, binding.layoutUserName)
-            toggleField(binding.tvUserPhone, binding.layoutUserPhone)
-
-            binding.tvBusinessQuestion.visibility = View.GONE
-            binding.radioGroupBusiness.visibility = View.GONE
-            binding.etBusinessProfession.dismissDropDown()
-
+            profileImageUri = null
         }
-    }
-
-    private suspend fun updateFirestore(updatedData: Map<String, Any>) = suspendCoroutine { continuation ->
-        userId?.let { id ->
-            firestore.collection("users").document(id).update(updatedData)
-                .addOnSuccessListener { continuation.resume(Unit) }
-                .addOnFailureListener { continuation.resumeWithException(it) }
-        } ?: continuation.resumeWithException(Exception("User ID is null"))
     }
 
     private fun toggleField(textView: View, editText: View) {
@@ -377,23 +374,20 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             !businessId.isNullOrEmpty()
         }
 
+        if (!isEditing) {
+            businessId?.let {
+                binding.radioBusinessYes.isChecked = true
+                binding.radioBusinessNo.isChecked = false
+            }
+        }
+
         binding.cardBusinessInfo.visibility = if (shouldShowBusinessFields) View.VISIBLE else View.GONE
-        if(shouldShowBusinessFields) {
+        if (shouldShowBusinessFields) {
             toggleField(binding.tvBusinessName, binding.layoutBusinessName)
             toggleField(binding.tvBusinessDescription, binding.layoutBusinessDescription)
             toggleField(binding.tvBusinessAddress, binding.layoutBusinessAddress)
             toggleField(binding.tvBusinessProfession, binding.layoutBusinessProfession)
-
-
-            maplibreMap?.uiSettings?.setAllGesturesEnabled(true)
-
         }
-    }
-
-    private fun setBusinessFieldPlaceholders() {
-        binding.etBusinessName.hint = "Business Name"
-        binding.etBusinessDescription.hint = "Business Description"
-        binding.etBusinessAddress.hint = "Business Address"
     }
 
     private val imagePickerLauncher =
@@ -408,74 +402,18 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         imagePickerLauncher.launch("image/*")
     }
 
-    private suspend fun uploadProfileImage(uri: Uri): String? = suspendCoroutine { continuation ->
-        showLoading()
-        MediaManager.get().upload(uri)
-            .option("resource_type", "image")
-            .callback(object : UploadCallback {
-                override fun onSuccess(requestId: String?, resultData: MutableMap<Any?, Any?>?) {
-                    val imageUrl = resultData?.get("secure_url") as? String
-                    continuation.resume(imageUrl)
-                }
-
-                override fun onError(requestId: String?, error: ErrorInfo?) {
-                    continuation.resume(null)
-                }
-
-                override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
-                override fun onStart(requestId: String?) {}
-                override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
-            })
-            .dispatch()
-    }
-
-    private suspend fun saveOrUpdateBusiness(): String? = suspendCoroutine { continuation ->
-        val latitude = businessLatLng?.latitude ?: 0.0
-        val longitude = businessLatLng?.longitude ?: 0.0
-        val geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(latitude, longitude))
-
-        val businessData = mapOf(
-            "userId" to userId,
-            "businessName" to binding.etBusinessName.text.toString(),
-            "description" to binding.etBusinessDescription.text.toString(),
-            "address" to binding.etBusinessAddress.text.toString(),
-            "profession" to binding.etBusinessProfession.text.toString(),
-            "location" to businessLatLng,
-            "geoHash" to geoHash
-        )
-
-        if (!businessId.isNullOrEmpty()) {
-            firestore.collection("businesses").document(businessId!!)
-                .update(businessData)
-                .addOnSuccessListener { continuation.resume(businessId) }
-                .addOnFailureListener { continuation.resumeWithException(it) }
-        } else {
-            val newBusinessRef = firestore.collection("businesses").document()
-            newBusinessRef.set(businessData)
-                .addOnSuccessListener {
-                    businessId = newBusinessRef.id
-                    continuation.resume(businessId)
-                }
-                .addOnFailureListener { continuation.resumeWithException(it) }
-        }
-    }
-
-    private suspend fun deleteBusinessIfNeeded() {
-        businessId?.let {
-            firestore.collection("businesses").document(it).delete()
-            businessId = null
-        }
-    }
-
-
     @SuppressLint("ClickableViewAccessibility")
     override fun onMapReady(maplibreMap: MapLibreMap) {
         this.maplibreMap = maplibreMap
         maplibreMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPLIBRE_API_KEY}") {
-            businessLatLng?.let { latLng ->
-                maplibreMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0))
-                maplibreMap.addMarker(MarkerOptions().position(latLng))
-            } ?: enableUserLocation()
+
+            enableUserLocation();
+
+            if (businessLatLng != null) {
+                updateMapWithBusinessLocation()
+            }
+
+            maplibreMap.uiSettings.setAllGesturesEnabled(true)
 
         }
 
@@ -484,10 +422,10 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 businessLatLng = point
                 maplibreMap.clear()
                 maplibreMap.addMarker(MarkerOptions().position(point))
+                return@addOnMapClickListener true
             }
-            true
+            false
         }
-
 
         binding.mapViewBusinessLocation.setOnTouchListener { v, event ->
             v.parent.requestDisallowInterceptTouchEvent(true)
@@ -513,39 +451,56 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             if (lastLocation != null) {
                 val userLatLng = LatLng(lastLocation.latitude, lastLocation.longitude)
                 maplibreMap!!.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.0))
+
+                if (isEditing && businessLatLng == null) {
+                    businessLatLng = userLatLng
+                    maplibreMap!!.clear()
+                    maplibreMap!!.addMarker(MarkerOptions().position(userLatLng))
+                }
             }
         } else {
-            centerMapOnUser()
+            centerMapOnDefaultLocation()
         }
     }
 
-    private fun centerMapOnUser() {
+    private fun centerMapOnDefaultLocation() {
         val defaultLocation = LatLng(32.0853, 34.7818) // Example (Tel Aviv)
         maplibreMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 12.0))
     }
 
+    override fun onStart() {
+        super.onStart()
+        binding.mapViewBusinessLocation.onStart()
+    }
 
-    override fun onStart() { super.onStart(); binding.mapViewBusinessLocation.onStart() }
-    override fun onResume() { super.onResume(); binding.mapViewBusinessLocation.onResume() }
-    override fun onPause() { super.onPause(); binding.mapViewBusinessLocation.onPause() }
-    override fun onStop() { super.onStop(); binding.mapViewBusinessLocation.onStop() }
+    override fun onResume() {
+        super.onResume()
+        binding.mapViewBusinessLocation.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        binding.mapViewBusinessLocation.onPause()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        binding.mapViewBusinessLocation.onStop()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         binding.mapViewBusinessLocation.onDestroy()
         _binding = null
     }
 
-    private fun showLoading() {
-        binding.progressBarProfile.visibility = View.VISIBLE
-        binding.btnEditProfile.isEnabled = false
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        binding.mapViewBusinessLocation.onSaveInstanceState(outState)
     }
 
-    private fun hideLoading() {
-        binding.progressBarProfile.visibility = View.GONE
-        binding.btnEditProfile.isEnabled = true
-    }
-
-    companion object {
-        private const val REQUEST_IMAGE_PICK = 1001
+    override fun onLowMemory() {
+        super.onLowMemory()
+        binding.mapViewBusinessLocation.onLowMemory()
     }
 }

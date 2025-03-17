@@ -1,4 +1,4 @@
-package com.example.gethandy.adapters
+package com.example.gethandy.ui.adapters
 
 import android.location.Location
 import android.view.LayoutInflater
@@ -9,7 +9,9 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.example.gethandy.R
 import com.example.gethandy.data.model.Business
+import com.example.gethandy.data.model.BusinessWithOwner
 
+// This adapter can work with either Business or BusinessWithOwner depending on your needs
 class BusinessAdapter(
     private var businesses: List<Business>,
     private val userLat: Double,
@@ -36,7 +38,7 @@ class BusinessAdapter(
             override fun getNewListSize(): Int = newList.size
 
             override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                return businesses[oldItemPosition].id == newList[newItemPosition].id
+                return businesses[oldItemPosition].businessId == newList[newItemPosition].businessId
             }
 
             override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
@@ -54,12 +56,12 @@ class BusinessAdapter(
         private val tvDistance: TextView = itemView.findViewById(R.id.tvBusinessDistance)
 
         fun bind(business: Business) {
-            tvName.text = business.name
-            tvOccupation.text = business.occupation
+            tvName.text = business.businessName
+            tvOccupation.text = business.profession
             tvDistance.text = itemView.context.getString(R.string.distance_km_away, calculateDistance(business))
 
             itemView.setOnClickListener {
-                onBusinessClick(business.id)
+                onBusinessClick(business.userId) // Clicking now navigates to the owner's profile
             }
         }
 
@@ -69,10 +71,10 @@ class BusinessAdapter(
                 longitude = userLon
             }
             val businessLocation = Location("").apply {
-                latitude = business.latitude
-                longitude = business.longitude
+                latitude = business.location.latitude
+                longitude = business.location.longitude
             }
-            return userLocation.distanceTo(businessLocation) / 1000.0  // Convert to km
+            return userLocation.distanceTo(businessLocation) / 1000.0
         }
     }
 }
