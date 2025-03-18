@@ -11,29 +11,24 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 
 class AppointmentRepository(
     private val appointmentDao: AppointmentDao,
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
-    // Get appointment with details
     fun getAppointmentWithDetails(appointmentId: String): LiveData<AppointmentWithDetails?> {
         return appointmentDao.getAppointmentWithDetails(appointmentId)
     }
 
-    // Get appointments for a user
     fun getAppointmentsForUser(userId: String): LiveData<List<AppointmentWithDetails>> {
         return appointmentDao.getAppointmentsForUser(userId)
     }
 
-    // Get appointments for a business
     fun getAppointmentsForBusiness(businessId: String): LiveData<List<AppointmentWithDetails>> {
         return appointmentDao.getAppointmentsForBusiness(businessId)
     }
 
-    // Book a new appointment
     suspend fun bookAppointment(
         userId: String,
         businessId: String,
@@ -42,41 +37,43 @@ class AppointmentRepository(
     ): NetworkResult<String> {
         return withContext(Dispatchers.IO) {
             try {
-                val appointmentId = UUID.randomUUID().toString()
 
                 val appointmentData = mapOf(
-                    "appointmentId" to appointmentId,
                     "userId" to userId,
                     "businessId" to businessId,
                     "date" to date,
                     "time" to time
                 )
 
-                firestore.collection("appointments")
-                    .document(appointmentId)
-                    .set(appointmentData)
-                    .await()
+                try {
+                    val docRef = firestore.collection("appointments")
+                        .document()
+                    docRef.set(appointmentData).await()
+                    val appointment = Appointment(
+                        appointmentId = docRef.id,
+                        userId = userId,
+                        businessId = businessId,
+                        date = date,
+                        time = time
+                    )
+                    try {
+                        appointmentDao.insertAppointment(appointment)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "bookAppointment: Error saving to local database", e)
+                    }
 
-                // Save to local database
-                val appointment = Appointment(
-                    appointmentId = appointmentId,
-                    userId = userId,
-                    businessId = businessId,
-                    date = date,
-                    time = time
-                )
-
-                appointmentDao.insertAppointment(appointment)
-
-                NetworkResult.Success(appointmentId)
+                    NetworkResult.Success(appointment.appointmentId)
+                } catch (e: Exception) {
+                    Log.e(TAG, "bookAppointment: Error saving to Firestore", e)
+                    return@withContext NetworkResult.Error("Error saving to Firestore: ${e.message}")
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error booking appointment")
+                Log.e(TAG, "bookAppointment: Unexpected error", e)
                 NetworkResult.Error(e.message ?: "Error booking appointment")
             }
         }
     }
 
-    // Cancel appointment
     suspend fun cancelAppointment(appointmentId: String): NetworkResult<Boolean> {
         return withContext(Dispatchers.IO) {
             try {
@@ -85,7 +82,6 @@ class AppointmentRepository(
                     .delete()
                     .await()
 
-                // Delete from local database
                 val appointment = appointmentDao.getAppointmentWithDetails(appointmentId).value?.appointment
                 if (appointment != null) {
                     appointmentDao.deleteAppointment(appointment)
@@ -99,7 +95,6 @@ class AppointmentRepository(
         }
     }
 
-    // Fetch appointments for a user from Firestore
     suspend fun fetchAppointmentsForUser(userId: String): NetworkResult<List<Appointment>> {
         return withContext(Dispatchers.IO) {
             try {
@@ -123,7 +118,6 @@ class AppointmentRepository(
                             time = time
                         )
 
-                        // Save to local database
                         appointmentDao.insertAppointment(appointment)
 
                         appointment
@@ -141,7 +135,6 @@ class AppointmentRepository(
         }
     }
 
-    // Fetch appointments for a business from Firestore
     suspend fun fetchAppointmentsForBusiness(businessId: String): NetworkResult<List<Appointment>> {
         return withContext(Dispatchers.IO) {
             try {
@@ -152,7 +145,7 @@ class AppointmentRepository(
 
                 val appointments = snapshot.documents.mapNotNull { doc ->
                     try {
-                        val appointmentId = doc.getString("appointmentId") ?: return@mapNotNull null
+                        val appointmentId = doc.id
                         val userId = doc.getString("userId") ?: return@mapNotNull null
                         val date = doc.getString("date") ?: return@mapNotNull null
                         val time = doc.getString("time") ?: return@mapNotNull null
@@ -165,7 +158,6 @@ class AppointmentRepository(
                             time = time
                         )
 
-                        // Save to local database
                         appointmentDao.insertAppointment(appointment)
 
                         appointment
@@ -179,6 +171,47 @@ class AppointmentRepository(
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching business appointments")
                 NetworkResult.Error(e.message ?: "Error fetching business appointments")
+            }
+        }
+    }
+
+    suspend fun fetchAppointmentsForBusinessOnDate(businessId: String, date: String): NetworkResult<List<Appointment>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val snapshot = firestore.collection("appointments")
+                    .whereEqualTo("businessId", businessId)
+                    .whereEqualTo("date", date)
+                    .get()
+                    .await()
+
+
+                val appointments = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        val appointmentId = doc.id
+                        val userId = doc.getString("userId") ?: return@mapNotNull null
+                        val time = doc.getString("time") ?: return@mapNotNull null
+
+                        val appointment = Appointment(
+                            appointmentId = appointmentId,
+                            userId = userId,
+                            businessId = businessId,
+                            date = date,
+                            time = time
+                        )
+
+                        appointmentDao.insertAppointment(appointment)
+
+                        appointment
+                    } catch (e: Exception) {
+                        Log.e(TAG, "fetchAppointmentsForBusinessOnDate: Error parsing document", e)
+                        null
+                    }
+                }
+
+                NetworkResult.Success(appointments)
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchAppointmentsForBusinessOnDate: Error", e)
+                NetworkResult.Error(e.message ?: "Error fetching appointments for date")
             }
         }
     }

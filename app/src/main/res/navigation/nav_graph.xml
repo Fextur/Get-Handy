@@ -96,11 +96,11 @@
 
         <action
             android:id="@+id/action_profile_to_appointment_booking"
-            app:destination="@id/appointmentBookingFragment"/>
-
-        <action
-            android:id="@+id/action_profile_to_appointments"
-            app:destination="@id/appointmentsFragment"/>
+            app:destination="@id/appointmentBookingFragment">
+            <argument
+                android:name="businessId"
+                app:argType="string" />
+        </action>
     </fragment>
 
     <fragment
@@ -124,8 +124,14 @@
         android:label="Book Appointment"
         tools:layout="@layout/fragment_appointment_booking">
 
-    <action
-        android:id="@+id/action_booking_to_home"
-        app:destination="@id/homeFragment"/>
+        <argument
+            android:name="businessId"
+            app:argType="string" />
+
+        <action
+            android:id="@+id/action_booking_to_appointments"
+            app:destination="@id/appointmentsFragment"
+            app:popUpTo="@id/profileFragment"
+            app:popUpToInclusive="false"/>
     </fragment>
 </navigation>

@@ -202,4 +202,61 @@ class BusinessRepository(
             }
         }
     }
+
+    suspend fun getBusinessById(businessId: String): NetworkResult<Business> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val localBusiness = businessDao.getBusinessById(businessId).value
+                if (localBusiness != null) {
+                    return@withContext NetworkResult.Success(localBusiness)
+                }
+
+                val doc = firestore.collection("businesses").document(businessId).get().await()
+
+                if (!doc.exists()) {
+                    Log.e(TAG, "getBusinessById: Business not found in Firestore")
+                    return@withContext NetworkResult.Error("Business not found")
+                }
+
+                val userId = doc.getString("userId") ?:
+                return@withContext NetworkResult.Error("Invalid business data")
+                val businessName = doc.getString("businessName") ?:
+                return@withContext NetworkResult.Error("Invalid business data")
+                val description = doc.getString("description") ?: ""
+                val address = doc.getString("address") ?: ""
+                val profession = doc.getString("profession") ?: ""
+                val geoHash = doc.getString("geoHash") ?: ""
+
+                val locationMap = doc.get("location") as? Map<*, *> ?:
+                return@withContext NetworkResult.Error("Invalid location data")
+                val lat = locationMap["latitude"] as? Double ?:
+                return@withContext NetworkResult.Error("Invalid location data")
+                val lng = locationMap["longitude"] as? Double ?:
+                return@withContext NetworkResult.Error("Invalid location data")
+                val location = LatLng(lat, lng)
+
+                val business = Business(
+                    businessId = businessId,
+                    userId = userId,
+                    businessName = businessName,
+                    description = description,
+                    address = address,
+                    profession = profession,
+                    location = location,
+                    geoHash = geoHash
+                )
+
+                try {
+                    businessDao.insertBusiness(business)
+                } catch (e: Exception) {
+                    Log.e(TAG, "getBusinessById: Error saving to local DB", e)
+                }
+
+                NetworkResult.Success(business)
+            } catch (e: Exception) {
+                Log.e(TAG, "getBusinessById: Error fetching business", e)
+                NetworkResult.Error(e.message ?: "Error fetching business")
+            }
+        }
+    }
 }

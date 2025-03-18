@@ -72,4 +72,9 @@
     <string name="edit_profile_picture">Edit profile picture</string>
     <string name="owned_by">Owned by:</string>
     <string name="tap_to_view_profile">Tap to view profile</string>
+    <string name="business">Business:</string>
+    <string name="profession_dots">Profession:</string>
+    <string name="address_dots">Address:</string>
+    <string name="book_your_appointment">Book Your Appointment</string>
+    <string name="appointments_are_available_sunday_friday_n_appointment_duration_30_minutes_n_business_hours_8_00_am_8_00_pm_n_friday_hours_8_00_am_2_00_pm_n_no_appointments_on_saturday">• Appointments are available Sunday-Friday\n• Appointment duration: 30 minutes\n• Business hours: 8:00 AM - 8:00 PM\n• Friday hours: 8:00 AM - 2:00 PM\n• No appointments on Saturday</string>
 </resources>

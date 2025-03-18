@@ -113,7 +113,14 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         }
 
         binding.btnBookAppointment.setOnClickListener {
-            findNavController().navigate(ProfileFragmentDirections.actionProfileToAppointmentBooking())
+            val localBusinessId = businessId
+            if (localBusinessId != null) {
+                findNavController().navigate(
+                    ProfileFragmentDirections.actionProfileToAppointmentBooking(localBusinessId)
+                )
+            } else {
+                showSnackbar(binding.root, "Unable to book appointment", SnackbarType.ERROR)
+            }
         }
 
         binding.radioGroupBusiness.setOnCheckedChangeListener { _, _ ->
@@ -490,6 +497,14 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         imagePickerLauncher.launch("image/*")
     }
 
+    @Override
+    override fun onResume() {
+        super.onResume()
+
+        userId?.let {
+            viewModel.getUserProfile(it)
+        }
+    }
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
