@@ -70,5 +70,6 @@
     <string name="location_permission_denied">Location permission denied</string>
     <string name="profile_update_success">Profile updated successfully</string>
     <string name="edit_profile_picture">Edit profile picture</string>
-
+    <string name="owned_by">Owned by:</string>
+    <string name="tap_to_view_profile">Tap to view profile</string>
 </resources>

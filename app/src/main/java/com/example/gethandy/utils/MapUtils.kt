@@ -6,14 +6,16 @@ import androidx.core.content.ContextCompat
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.example.gethandy.BuildConfig
-import com.example.gethandy.TAG
 import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
+import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -141,5 +143,29 @@ object MapUtils {
                 viewLifecycleOwner.lifecycle.removeObserver(this)
             }
         })
+    }
+
+    @Suppress("DEPRECATION")
+    fun addMarkerAndReturn(map: MapLibreMap, position: LatLng, title: String? = null): Marker {
+        val markerOptions = MarkerOptions().position(position)
+        if (title != null) markerOptions.title(title)
+        return map.addMarker(markerOptions)
+    }
+
+    @Suppress("DEPRECATION")
+    fun setupInfoWindowAdapter(
+        map: MapLibreMap,
+        layoutInflater: LayoutInflater,
+        layoutResId: Int,
+        bindView: (marker: Marker, view: View) -> Unit
+    ) {
+        map.setInfoWindowAdapter { marker ->
+            val rootView = marker.infoWindow?.view?.parent as? ViewGroup
+            val infoView = layoutInflater.inflate(layoutResId, rootView, false)
+
+            bindView(marker, infoView)
+
+            infoView
+        }
     }
 }
