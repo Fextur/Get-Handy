@@ -1,6 +1,7 @@
 package com.example.gethandy.ui.profile
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
@@ -13,6 +14,7 @@ import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import applyPhoneFormatting
@@ -28,6 +30,9 @@ import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
 import com.example.gethandy.utils.ValidationUtil
 import com.example.gethandy.utils.showSnackbar
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
@@ -127,35 +132,75 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun setupProfessionAutocomplete() {
+        Log.d(TAG, "Setting up profession autocomplete")
+
+        // Create adapter with empty list
         val professionAdapter = ArrayAdapter<String>(
             requireContext(),
             android.R.layout.simple_dropdown_item_1line,
-            mutableListOf()
+            ArrayList<String>()
         )
         binding.etBusinessProfession.setAdapter(professionAdapter)
 
+        binding.etBusinessProfession.threshold = 0
+
         binding.etBusinessProfession.setOnClickListener {
-            binding.etBusinessProfession.showDropDown()
+            Log.d(TAG, "Profession field clicked")
+            if (professionAdapter.count == 0) {
+                viewModel.searchProfessions("", 15)
+            }
+
+            binding.etBusinessProfession.postDelayed({
+                if (binding.etBusinessProfession.hasFocus()) {
+                    binding.etBusinessProfession.showDropDown()
+                }
+            }, 100)
         }
 
-        binding.etBusinessProfession.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
+        binding.etBusinessProfession.setOnTouchListener { v, _ ->
+            val adapter = binding.etBusinessProfession.adapter
+            if (adapter != null && adapter.count > 0) {
+                v.performClick()
                 binding.etBusinessProfession.showDropDown()
             }
+            false
         }
+        var searchJob: Job? = null
+        binding.etBusinessProfession.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
-        viewModel.professions.observe(viewLifecycleOwner) { professions ->
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                searchJob?.cancel()
+
+                searchJob = lifecycleScope.launch {
+                    delay(150)
+                    val query = s?.toString() ?: ""
+                    Log.d(TAG, "Text changed to: '$query', searching")
+                    viewModel.searchProfessions(query, 15)
+                }
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        })
+        viewModel.filteredProfessions.observe(viewLifecycleOwner) { professions ->
             val professionNames = professions.map { it.name }
-            val adapter = ArrayAdapter(
-                requireContext(),
-                android.R.layout.simple_dropdown_item_1line,
-                professionNames
-            )
-            binding.etBusinessProfession.setAdapter(adapter)
-
-            binding.etBusinessProfession.showDropDown()
+            if (professionNames.isNotEmpty() || professionAdapter.isEmpty) {
+                professionAdapter.clear()
+                professionAdapter.addAll(professionNames)
+                professionAdapter.notifyDataSetChanged()
+                if (binding.etBusinessProfession.hasFocus() && professionNames.isNotEmpty()) {
+                    binding.etBusinessProfession.post {
+                        binding.etBusinessProfession.showDropDown()
+                    }
+                }
+            }
         }
+        binding.etBusinessProfession.setOnItemClickListener { _, _, _, _ ->
+            binding.etBusinessProfession.requestFocus()
+        }
+        viewModel.refreshProfessions()
     }
 
     private fun observeViewModel() {
@@ -225,16 +270,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                     showSnackbar(binding.root, result.message, SnackbarType.ERROR)
                 }
             }
-        }
-
-        viewModel.professions.observe(viewLifecycleOwner) { professions ->
-            val professionNames = professions.map { it.name }
-            val adapter = ArrayAdapter(
-                requireContext(),
-                android.R.layout.simple_dropdown_item_1line,
-                professionNames
-            )
-            binding.etBusinessProfession.setAdapter(adapter)
         }
 
         viewModel.profileUpdateState.observe(viewLifecycleOwner) { result ->
@@ -376,7 +411,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun isProfessionValid(professionName: String): Boolean {
-        return viewModel.professions.value?.any {
+        return viewModel.filteredProfessions.value?.any {
             it.name.equals(professionName, ignoreCase = true)
         } == true
     }

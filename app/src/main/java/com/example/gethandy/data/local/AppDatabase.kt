@@ -22,7 +22,7 @@ import com.example.gethandy.utils.Converters
         Profession::class,
         Appointment::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

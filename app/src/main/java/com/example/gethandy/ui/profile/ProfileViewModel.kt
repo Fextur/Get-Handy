@@ -33,7 +33,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val _profileUpdateState = MutableLiveData<NetworkResult<Boolean>>()
     val profileUpdateState: LiveData<NetworkResult<Boolean>> = _profileUpdateState
 
-    val professions = professionRepository.getAllProfessions()
+    val filteredProfessions = professionRepository.filteredProfessions
 
     fun getUserProfile(userId: String) {
         viewModelScope.launch {
@@ -133,15 +133,25 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun searchProfessions(query: String, limit: Int = 15) {
+        viewModelScope.launch {
+            Log.d(TAG, "ViewModel searching professions: '$query'")
+            professionRepository.searchProfessions(query, limit)
+        }
+    }
+
     fun refreshProfessions() {
         viewModelScope.launch {
             try {
+                Log.d(TAG, "ViewModel refreshing professions")
                 professionRepository.refreshProfessions()
+
+                professionRepository.searchProfessions("", 15)
             } catch (e: Exception) {
-                Log.e(TAG, "Error refreshing professions")
+                Log.e(TAG, "Error refreshing professions: ${e.message}")
             }
         }
-    }
+       }
 }
 
 data class BusinessDetails(

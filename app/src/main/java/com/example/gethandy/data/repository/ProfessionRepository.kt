@@ -6,7 +6,6 @@ import androidx.lifecycle.MutableLiveData
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.dao.ProfessionDao
 import com.example.gethandy.data.model.Profession
-import com.example.gethandy.utils.NetworkResult
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
@@ -20,27 +19,52 @@ class ProfessionRepository(
         return professionDao.getAllProfessions()
     }
 
-    suspend fun refreshProfessions(): NetworkResult<List<Profession>> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val snapshot = firestore.collection("professions")
-                    .orderBy("name")
-                    .get()
-                    .await()
+    private val _filteredProfessions = MutableLiveData<List<Profession>>()
+    val filteredProfessions: LiveData<List<Profession>> = _filteredProfessions
 
-                val professions = snapshot.documents.mapNotNull { doc ->
-                    val name = doc.getString("name") ?: return@mapNotNull null
-                    Profession(name)
+    suspend fun searchProfessions(query: String, limit: Int = 15) {
+        withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Searching professions with query: '$query', limit: $limit")
+
+                val searchQuery = if (query.isBlank()) {
+                    "%"
+                } else {
+                    "%${query.trim()}%"
                 }
 
-                professionDao.insertAllProfessions(professions)
 
-                NetworkResult.Success(professions)
+                val localProfessions = if (query.isBlank()) {
+                    professionDao.getProfessionsWithLimit(limit)
+                } else {
+                    professionDao.searchProfessionsWithLimit(searchQuery, limit)
+                }
+
+                _filteredProfessions.postValue(localProfessions)
             } catch (e: Exception) {
-                Log.e(TAG, "Error refreshing professions")
-                NetworkResult.Error(e.message ?: "Error fetching professions")
+                Log.e(TAG, "Error searching professions: ${e.message}", e)
+                _filteredProfessions.postValue(emptyList())
             }
         }
     }
+    suspend fun refreshProfessions() {
+        withContext(Dispatchers.IO) {
+            try {
+                val snapshot = firestore.collection("professions").get().await()
 
+                val professions = snapshot.documents.mapNotNull { doc ->
+                    val name = doc.getString("name") ?: return@mapNotNull null
+
+                    Profession(
+                        id = doc.id,
+                        name = name
+                    )
+                }
+
+                professionDao.insertProfessions(professions)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error refreshing professions: ${e.message}", e)
+            }
+        }
+    }
 }
