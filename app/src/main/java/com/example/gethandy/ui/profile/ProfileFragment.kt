@@ -1,38 +1,34 @@
 package com.example.gethandy.ui.profile
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import applyPhoneFormatting
 import com.bumptech.glide.Glide
-import com.example.gethandy.BuildConfig
 import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.databinding.FragmentProfileBinding
 import com.example.gethandy.utils.LoadingUtil
+import com.example.gethandy.utils.MapUtils
+import com.example.gethandy.utils.MapUtils.bindMapLifecycle
 import com.example.gethandy.utils.NetworkResult
 import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
+import com.example.gethandy.utils.ValidationUtil
 import com.example.gethandy.utils.showSnackbar
-import org.maplibre.android.annotations.MarkerOptions
-import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.location.LocationComponent
-import org.maplibre.android.location.LocationComponentActivationOptions
-import org.maplibre.android.location.modes.CameraMode
-import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
 
@@ -56,17 +52,21 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentProfileBinding.inflate(inflater, container, false)
+
+        MapUtils.initializeMap(requireContext(), binding.mapViewBusinessLocation, savedInstanceState)
+        binding.mapViewBusinessLocation.getMapAsync(this)
+
+        bindMapLifecycle(binding.mapViewBusinessLocation)
+
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         Log.d("ProfileFragment", "onViewCreated called ${UserManager.getUserId(requireContext())}")
+
         userId = args.userId ?: UserManager.getUserId(requireContext())
         isCurrentUser = (userId == UserManager.getUserId(requireContext()))
-
-        binding.mapViewBusinessLocation.onCreate(savedInstanceState)
-        binding.mapViewBusinessLocation.getMapAsync(this)
 
         setupListeners()
         setupProfessionAutocomplete()
@@ -75,6 +75,30 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         userId?.let {
             viewModel.getUserProfile(it)
             viewModel.refreshProfessions()
+        }
+
+        MapUtils.setupMapTouchHandler(binding.mapViewBusinessLocation)
+    }
+
+    override fun onMapReady(maplibreMap: MapLibreMap) {
+        this.maplibreMap = maplibreMap
+
+        MapUtils.setupMapStyle(maplibreMap) {
+            MapUtils.enableUserLocation(maplibreMap, requireContext())
+            if (businessLatLng != null) {
+                updateMapWithBusinessLocation()
+            }
+
+            maplibreMap.uiSettings.setAllGesturesEnabled(true)
+        }
+
+        maplibreMap.addOnMapClickListener { point ->
+            if (isEditing) {
+                businessLatLng = point
+                MapUtils.clearMap(maplibreMap)
+                MapUtils.addMarker(maplibreMap, point)
+                true
+            } else false
         }
     }
 
@@ -94,6 +118,13 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         binding.ivProfilePic.setOnClickListener {
             if (isEditing) selectProfileImage()
         }
+
+        binding.fabChangeProfilePic.setOnClickListener {
+            if (isEditing) selectProfileImage()
+        }
+
+        binding.etUserPhone.applyPhoneFormatting()
+
     }
 
     private fun setupProfessionAutocomplete() {
@@ -169,7 +200,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                         businessLatLng = business.location
                         updateMapWithBusinessLocation()
                     } else {
-                        binding.radioBusinessNo.isChecked = false
+                        binding.radioBusinessNo.isChecked = true
                     }
 
                     toggleBusinessFields()
@@ -224,6 +255,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
                     toggleBusinessFields()
 
+                    binding.fabChangeProfilePic.visibility = View.GONE
+
                     LoadingUtil.showLoading(requireContext(), false)
                     showSnackbar(binding.root, getString(R.string.profile_update_success), SnackbarType.SUCCESS)
                 }
@@ -233,15 +266,14 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 }
             }
         }
-
     }
 
     private fun updateMapWithBusinessLocation() {
         maplibreMap?.let { map ->
             businessLatLng?.let { location ->
-                map.clear()
-                map.addMarker(MarkerOptions().position(location))
-                map.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.0))
+                MapUtils.clearMap(maplibreMap!!)
+                MapUtils.addMarker(map, location)
+                MapUtils.animateCamera(map, location)
             }
         }
     }
@@ -268,21 +300,40 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         toggleField(binding.tvUserPhone, binding.layoutUserPhone)
 
         toggleBusinessFields()
-        if (maplibreMap != null) enableUserLocation()
+
+        if (maplibreMap != null) {
+            val userLocation = MapUtils.enableUserLocation(maplibreMap!!, requireContext())
+            if (userLocation != null && businessLatLng == null) {
+                businessLatLng = userLocation
+                MapUtils.clearMap(maplibreMap!!)
+                MapUtils.addMarker(maplibreMap!!, userLocation)
+            } else if (businessLatLng == null) {
+                centerMapOnDefaultLocation()
+            }
+        }
+
+        binding.fabChangeProfilePic.visibility = View.VISIBLE
+    }
+
+    private fun centerMapOnDefaultLocation() {
+        val defaultLocation = LatLng(32.0853, 34.7818) // Example (Tel Aviv)
+        maplibreMap?.let { map ->
+            MapUtils.animateCamera(map, defaultLocation, 12.0)
+        }
     }
 
     private fun isProfileValid(): Boolean {
         val fullName = binding.etUserName.text.toString().trim()
         val phone = binding.etUserPhone.text.toString().trim()
 
-        if (fullName.isEmpty()) {
+        if (!ValidationUtil.isValidName(fullName)) {
             binding.layoutUserName.error = getString(R.string.error_full_name_required)
             return false
         } else {
             binding.layoutUserName.error = null
         }
 
-        if (!isValidPhoneNumber(phone)) {
+        if (!ValidationUtil.isValidPhoneNumber(phone)) {
             binding.layoutUserPhone.error = getString(R.string.error_invalid_phone)
             return false
         } else {
@@ -294,21 +345,21 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             val address = binding.etBusinessAddress.text.toString().trim()
             val profession = binding.etBusinessProfession.text.toString().trim()
 
-            if (businessName.isEmpty()) {
+            if (!ValidationUtil.isValidBusinessName(businessName)) {
                 binding.layoutBusinessName.error = getString(R.string.error_business_name_required)
                 return false
             } else {
                 binding.layoutBusinessName.error = null
             }
 
-            if (address.isEmpty()) {
+            if (!ValidationUtil.isValidAddress(address)) {
                 binding.layoutBusinessAddress.error = getString(R.string.error_business_address_required)
                 return false
             } else {
                 binding.layoutBusinessAddress.error = null
             }
 
-            if (profession.isEmpty()) {
+            if (!isProfessionValid(profession)) {
                 binding.layoutBusinessProfession.error = getString(R.string.error_invalid_profession)
                 return false
             } else {
@@ -324,10 +375,12 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         return true
     }
 
-    private fun isValidPhoneNumber(phone: String): Boolean {
-        val regex = Regex("^\\+?[0-9]{7,15}\$")
-        return regex.matches(phone)
+    private fun isProfessionValid(professionName: String): Boolean {
+        return viewModel.professions.value?.any {
+            it.name.equals(professionName, ignoreCase = true)
+        } == true
     }
+
 
     private fun saveProfileChanges() {
         if (!isProfileValid()) return
@@ -402,105 +455,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         imagePickerLauncher.launch("image/*")
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onMapReady(maplibreMap: MapLibreMap) {
-        this.maplibreMap = maplibreMap
-        maplibreMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPLIBRE_API_KEY}") {
-
-            enableUserLocation();
-
-            if (businessLatLng != null) {
-                updateMapWithBusinessLocation()
-            }
-
-            maplibreMap.uiSettings.setAllGesturesEnabled(true)
-
-        }
-
-        maplibreMap.addOnMapClickListener { point ->
-            if (isEditing) {
-                businessLatLng = point
-                maplibreMap.clear()
-                maplibreMap.addMarker(MarkerOptions().position(point))
-                return@addOnMapClickListener true
-            }
-            false
-        }
-
-        binding.mapViewBusinessLocation.setOnTouchListener { v, event ->
-            v.parent.requestDisallowInterceptTouchEvent(true)
-            v.onTouchEvent(event)
-            true
-        }
-    }
-
-    private fun enableUserLocation() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
-            == PackageManager.PERMISSION_GRANTED) {
-
-            val locationComponent: LocationComponent = maplibreMap!!.locationComponent
-            locationComponent.activateLocationComponent(
-                LocationComponentActivationOptions.builder(requireContext(), maplibreMap!!.style!!)
-                    .build()
-            )
-            locationComponent.isLocationComponentEnabled = true
-            locationComponent.cameraMode = CameraMode.TRACKING
-            locationComponent.renderMode = RenderMode.NORMAL
-
-            val lastLocation = locationComponent.lastKnownLocation
-            if (lastLocation != null) {
-                val userLatLng = LatLng(lastLocation.latitude, lastLocation.longitude)
-                maplibreMap!!.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.0))
-
-                if (isEditing && businessLatLng == null) {
-                    businessLatLng = userLatLng
-                    maplibreMap!!.clear()
-                    maplibreMap!!.addMarker(MarkerOptions().position(userLatLng))
-                }
-            }
-        } else {
-            centerMapOnDefaultLocation()
-        }
-    }
-
-    private fun centerMapOnDefaultLocation() {
-        val defaultLocation = LatLng(32.0853, 34.7818) // Example (Tel Aviv)
-        maplibreMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 12.0))
-    }
-
-    override fun onStart() {
-        super.onStart()
-        binding.mapViewBusinessLocation.onStart()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        binding.mapViewBusinessLocation.onResume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        binding.mapViewBusinessLocation.onPause()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        binding.mapViewBusinessLocation.onStop()
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
-        binding.mapViewBusinessLocation.onDestroy()
         _binding = null
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        binding.mapViewBusinessLocation.onSaveInstanceState(outState)
-    }
-
-    override fun onLowMemory() {
-        super.onLowMemory()
-        binding.mapViewBusinessLocation.onLowMemory()
     }
 }

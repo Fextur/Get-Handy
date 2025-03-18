@@ -5,8 +5,10 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.dao.BusinessDao
+import com.example.gethandy.data.local.dao.UserDao
 import com.example.gethandy.data.model.Business
 import com.example.gethandy.data.model.BusinessWithOwner
+import com.example.gethandy.data.model.User
 import com.example.gethandy.utils.NetworkResult
 import com.firebase.geofire.GeoFireUtils
 import com.firebase.geofire.GeoLocation
@@ -19,8 +21,10 @@ import org.maplibre.android.geometry.LatLng
 
 class BusinessRepository(
     private val businessDao: BusinessDao,
+    private val userDao: UserDao,
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
+    // In BusinessRepository.kt, modify the getNearbyBusinesses method
     suspend fun getNearbyBusinesses(center: LatLng, radiusInKm: Double): NetworkResult<List<Business>> {
         return withContext(Dispatchers.IO) {
             try {
@@ -70,19 +74,57 @@ class BusinessRepository(
                             )
 
                             matchingBusinesses.add(business)
-                            businessDao.insertBusiness(business)
+
+                            // Check if the user exists in the local database
+                            val existingUser = userDao.getUserByIdSync(userId)
+
+                            if (existingUser == null) {
+                                // User doesn't exist locally, fetch from Firestore and save
+                                try {
+                                    val userDoc = firestore.collection("users").document(userId).get().await()
+                                    if (userDoc.exists()) {
+                                        val fullName = userDoc.getString("fullName") ?: ""
+                                        val email = userDoc.getString("email") ?: ""
+                                        val phone = userDoc.getString("phone") ?: ""
+                                        val profilePicUrl = userDoc.getString("profilePicUrl") ?: ""
+                                        val businessId = userDoc.getString("businessId")
+
+                                        val user = User(
+                                            userId = userId,
+                                            fullName = fullName,
+                                            email = email,
+                                            phone = phone,
+                                            profilePicUrl = profilePicUrl,
+                                            businessId = businessId
+                                        )
+
+                                        // Insert user first to satisfy foreign key constraint
+                                        userDao.insertUser(user)
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error fetching user data for business: $businessId", e)
+                                    // Continue without inserting this business
+                                    continue
+                                }
+                            }
+
+                            try {
+                                // Now insert the business after ensuring user exists
+                                businessDao.insertBusiness(business)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error inserting business: $businessId", e)
+                            }
                         }
                     }
                 }
 
                 NetworkResult.Success(matchingBusinesses)
             } catch (e: Exception) {
-                Log.e(TAG, "Error fetching nearby businesses")
+                Log.e(TAG, "Error fetching nearby businesses", e)
                 NetworkResult.Error(e.message ?: "Error fetching nearby businesses")
             }
         }
     }
-
     suspend fun saveOrUpdateBusiness(
         businessId: String?,
         userId: String,
@@ -114,10 +156,13 @@ class BusinessRepository(
                 val newBusinessId = if (businessId != null) {
                     firestore.collection("businesses").document(businessId)
                         .update(businessData).await()
+                    Log.d(TAG, "Updated business ID: $businessId")
                     businessId
                 } else {
                     val docRef = firestore.collection("businesses").document()
                     docRef.set(businessData).await()
+                    Log.d(TAG, "New business ID: $businessId")
+
                     docRef.id
                 }
 
@@ -132,8 +177,23 @@ class BusinessRepository(
                     geoHash = geoHash
                 )
 
-                businessDao.insertBusiness(business)
 
+                Log.d(TAG, "PRE-INSERT BUSINESS OBJECT:")
+                Log.d(TAG, "ID: ${business.businessId}")
+                Log.d(TAG, "UserID: ${business.userId}")
+                Log.d(TAG, "Name: ${business.businessName}")
+                Log.d(TAG, "Description: ${business.description}")
+                Log.d(TAG, "Address: ${business.address}")
+                Log.d(TAG, "Profession: ${business.profession}")
+                Log.d(TAG, "Location: ${business.location}")
+                Log.d(TAG, "GeoHash: ${business.geoHash}")
+
+                try {
+                    businessDao.insertBusiness(business)
+                    Log.d(TAG, "BUSINESS INSERT SUCCEEDED")
+                } catch (e: Exception) {
+                    Log.e(TAG, "BUSINESS INSERT FAILED", e)
+                }
                 NetworkResult.Success(newBusinessId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving business")

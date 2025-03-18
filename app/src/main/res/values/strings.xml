@@ -69,5 +69,6 @@
     <string name="error_select_location">Select a business location on the map</string>
     <string name="location_permission_denied">Location permission denied</string>
     <string name="profile_update_success">Profile updated successfully</string>
+    <string name="edit_profile_picture">Edit profile picture</string>
 
 </resources>

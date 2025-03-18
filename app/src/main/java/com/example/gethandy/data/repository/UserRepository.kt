@@ -126,7 +126,7 @@ class UserRepository(
                 val updates = mutableMapOf<String, Any?>()
                 updates["fullName"] = fullName
                 updates["phone"] = phone
-
+                Log.d(TAG, "business ID: $businessId")
                 if (businessId != null) {
                     updates["businessId"] = businessId
                 } else {
@@ -137,6 +137,7 @@ class UserRepository(
                     updates["profilePicUrl"] = profileImageUrl
                 }
 
+                Log.d(TAG, "business ID2: ${updates["businessId"]}")
                 firestore.collection("users").document(userId).update(updates).await()
 
                 val userDoc = firestore.collection("users").document(userId).get().await()

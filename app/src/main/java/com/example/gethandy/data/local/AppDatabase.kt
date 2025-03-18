@@ -22,7 +22,7 @@ import com.example.gethandy.utils.Converters
         Profession::class,
         Appointment::class
     ],
-    version = 1,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -42,7 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "gethandy_database"
+                    "gethandy_db_fresh2"
                 )
                     .fallbackToDestructiveMigration()
                     .build()
@@ -50,5 +50,6 @@ abstract class AppDatabase : RoomDatabase() {
                 instance
             }
         }
+
     }
 }

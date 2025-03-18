@@ -13,6 +13,7 @@ import com.example.gethandy.utils.LoadingUtil
 import com.example.gethandy.utils.NetworkResult
 import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
+import com.example.gethandy.utils.ValidationUtil
 import com.example.gethandy.utils.showSnackbar
 
 class LoginFragment : Fragment() {
@@ -59,12 +60,12 @@ class LoginFragment : Fragment() {
         val email = binding.etEmail.text.toString().trim()
         val password = binding.etPassword.text.toString().trim()
 
-        if (!isValidEmail(email)) {
+        if (!ValidationUtil.isValidEmail(email)) {
             binding.etEmail.error = getString(R.string.valid_email_required)
             return false
         }
 
-        if (password.length < 6) {
+        if (!ValidationUtil.isValidPassword(password)) {
             binding.etPassword.error = getString(R.string.password_length_error)
             return false
         }
@@ -72,9 +73,6 @@ class LoginFragment : Fragment() {
         return true
     }
 
-    private fun isValidEmail(email: String): Boolean {
-        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
-    }
 
     private fun observeViewModel() {
         viewModel.loginState.observe(viewLifecycleOwner) { result ->

@@ -20,7 +20,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val userDao = AppDatabase.getDatabase(application).userDao()
     private val businessDao = AppDatabase.getDatabase(application).businessDao()
     private val userRepository = UserRepository(userDao)
-    private val businessRepository = BusinessRepository(businessDao)
+    private val businessRepository = BusinessRepository(businessDao, userDao)
 
     private val _nearbyBusinesses = MutableLiveData<NetworkResult<List<Business>>>()
     val nearbyBusinesses: LiveData<NetworkResult<List<Business>>> = _nearbyBusinesses

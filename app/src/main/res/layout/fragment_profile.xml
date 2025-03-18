@@ -10,19 +10,39 @@
         android:layout_height="wrap_content"
         android:padding="16dp">
 
-        <ImageView
-            android:id="@+id/ivProfilePic"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:contentDescription="@string/profile_picture"
-            app:cornerRadius="60dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:scaleType="centerCrop"
-            android:background="@android:color/darker_gray"
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            app:layout_constraintEnd_toEndOf="parent"
+            android:id="@+id/layoutProfilePic"
+            >
+
+            <ImageView
+                android:id="@+id/ivProfilePic"
+                android:layout_width="240dp"
+                android:layout_height="240dp"
+                android:contentDescription="@string/profile_picture"
+                app:cornerRadius="60dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:scaleType="centerCrop"
+                android:background="@android:color/darker_gray" />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fabChangeProfilePic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:layout_marginEnd="4dp"
+                android:layout_marginBottom="4dp"
+                android:src="@drawable/camera"
+                android:visibility="gone"
+                app:fabSize="mini"
+                android:contentDescription="@string/edit_profile_picture"/>
+
+        </FrameLayout>
 
         <TextView
             android:id="@+id/tvUserName"
@@ -30,7 +50,7 @@
             android:layout_height="wrap_content"
             android:textSize="18sp"
             android:textStyle="bold"
-            app:layout_constraintTop_toBottomOf="@id/ivProfilePic"
+            app:layout_constraintTop_toBottomOf="@id/layoutProfilePic"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
@@ -85,6 +105,7 @@
                 android:inputType="phone"
                 android:enabled="true"/>
         </com.google.android.material.textfield.TextInputLayout>
+
 
         <TextView
             android:id="@+id/tvBusinessQuestion"

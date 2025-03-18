@@ -22,4 +22,8 @@ interface BusinessDao {
 
     @Delete
     suspend fun deleteBusiness(business: Business)
+
+    @Query("SELECT * FROM businesses")
+    suspend fun getAllBusinessesSync(): List<Business>
+
 }

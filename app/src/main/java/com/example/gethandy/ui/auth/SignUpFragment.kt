@@ -8,12 +8,14 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import applyPhoneFormatting
 import com.example.gethandy.R
 import com.example.gethandy.databinding.FragmentSignUpBinding
 import com.example.gethandy.utils.LoadingUtil
 import com.example.gethandy.utils.NetworkResult
 import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
+import com.example.gethandy.utils.ValidationUtil
 import com.example.gethandy.utils.showSnackbar
 
 class SignUpFragment : Fragment() {
@@ -44,6 +46,9 @@ class SignUpFragment : Fragment() {
                 signUpUser()
             }
         }
+
+        binding.etPhone.applyPhoneFormatting()
+
     }
 
     private fun observeViewModel() {
@@ -81,22 +86,22 @@ class SignUpFragment : Fragment() {
         val phone = binding.etPhone.text.toString().trim()
         val password = binding.etPassword.text.toString().trim()
 
-        if (fullName.isEmpty()) {
+        if (!ValidationUtil.isValidName(fullName)) {
             binding.etName.error = getString(R.string.full_name_required)
             return false
         }
 
-        if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        if (!ValidationUtil.isValidEmail(email)) {
             binding.etEmail.error = getString(R.string.valid_email_required)
             return false
         }
 
-        if (phone.length < 9 || !phone.matches(Regex("^\\+?[0-9]{7,15}\$"))) {
+        if (!ValidationUtil.isValidPhoneNumber(phone)) {
             binding.etPhone.error = getString(R.string.valid_phone_required)
             return false
         }
 
-        if (password.length < 6) {
+        if (!ValidationUtil.isValidPassword(password)) {
             binding.etPassword.error = getString(R.string.password_length_error)
             return false
         }

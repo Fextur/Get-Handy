@@ -19,6 +19,8 @@ import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.databinding.FragmentHomeBinding
 import com.example.gethandy.utils.LoadingUtil
+import com.example.gethandy.utils.MapUtils
+import com.example.gethandy.utils.MapUtils.bindMapLifecycle
 import com.example.gethandy.utils.NetworkResult
 import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
@@ -30,10 +32,6 @@ import org.maplibre.android.WellKnownTileServer
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.location.LocationComponent
-import org.maplibre.android.location.LocationComponentActivationOptions
-import org.maplibre.android.location.modes.CameraMode
-import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
 
@@ -49,6 +47,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Initialize MapLibre before inflating the layout with MapView
         MapLibre.getInstance(requireContext(), BuildConfig.MAPLIBRE_API_KEY, WellKnownTileServer.MapLibre)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
     }
@@ -58,14 +57,19 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
+
+        // Initialize the map view
         binding.mapView.onCreate(savedInstanceState)
         binding.mapView.getMapAsync(this)
+
+        // Bind map lifecycle to fragment
+        bindMapLifecycle(binding.mapView)
+
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         setupListeners()
         observeViewModel()
     }
@@ -107,15 +111,16 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun displayBusinessesOnMap(businesses: List<com.example.gethandy.data.model.Business>) {
-        maplibreMap.clear()
+        // Clear existing markers
+        MapUtils.clearMap(maplibreMap)
 
+        // Add markers for each business
         businesses.forEach { business ->
-            val markerOptions = org.maplibre.android.annotations.MarkerOptions()
-                .position(business.location)
-                .title(business.businessName)
-                .snippet(business.profession)
-
-            maplibreMap.addMarker(markerOptions)
+            MapUtils.addMarker(
+                maplibreMap,
+                business.location,
+                business.businessName
+            )
         }
     }
 
@@ -148,7 +153,9 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
 
     override fun onMapReady(maplibreMap: MapLibreMap) {
         this.maplibreMap = maplibreMap
-        maplibreMap.setStyle("https://api.maptiler.com/maps/basic/style.json?key=${BuildConfig.MAPLIBRE_API_KEY}") {
+
+        // Set up map style with MapUtils
+        MapUtils.setupMapStyle(maplibreMap) {
             requestLocationPermission()
         }
     }
@@ -179,25 +186,25 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
             return
         }
 
-        val locationComponent: LocationComponent = maplibreMap.locationComponent
-        locationComponent.activateLocationComponent(
-            LocationComponentActivationOptions.builder(requireContext(), maplibreMap.style!!)
-                .build()
-        )
+        // Use MapUtils to enable user location
+        val userLocation = MapUtils.enableUserLocation(maplibreMap, requireContext())
 
-        locationComponent.isLocationComponentEnabled = true
-        locationComponent.cameraMode = CameraMode.TRACKING
-        locationComponent.renderMode = RenderMode.NORMAL
-
+        // Get last known location from fused location provider for more reliability
         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
             location?.let {
                 val userLatLng = LatLng(location.latitude, location.longitude)
                 viewModel.setCurrentLocation(userLatLng)
+            } ?: run {
+                // Fall back to location from MapUtils if fusedLocationClient returns null
+                userLocation?.let {
+                    viewModel.setCurrentLocation(it)
+                }
             }
         }
     }
 
     private fun updateMapLocation(location: LatLng) {
+        // Custom camera position with tilt and animation
         maplibreMap.animateCamera(
             CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
@@ -210,39 +217,8 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         )
     }
 
-    override fun onStart() {
-        super.onStart()
-        binding.mapView.onStart()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        binding.mapView.onResume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        binding.mapView.onPause()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        binding.mapView.onStop()
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
-        binding.mapView.onDestroy()
         _binding = null
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        binding.mapView.onSaveInstanceState(outState)
-    }
-
-    override fun onLowMemory() {
-        super.onLowMemory()
-        binding.mapView.onLowMemory()
     }
 }

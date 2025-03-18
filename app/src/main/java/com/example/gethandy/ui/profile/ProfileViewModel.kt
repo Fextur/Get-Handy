@@ -24,7 +24,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val professionDao = AppDatabase.getDatabase(application).professionDao()
 
     private val userRepository = UserRepository(userDao)
-    private val businessRepository = BusinessRepository(businessDao)
+    private val businessRepository = BusinessRepository(businessDao, userDao)
     private val professionRepository = ProfessionRepository(professionDao)
 
     private val _userProfileState = MutableLiveData<NetworkResult<User>>()
@@ -119,6 +119,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 )
 
                 if (userResult is NetworkResult.Success) {
+                    userRepository.loadUser(userId)
                     _profileUpdateState.value = NetworkResult.Success(true)
                     Log.d(TAG, "Profile updated successfully")
                 } else if (userResult is NetworkResult.Error) {

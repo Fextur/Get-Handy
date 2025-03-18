@@ -16,7 +16,8 @@ import org.maplibre.android.geometry.LatLng
             entity = User::class,
             parentColumns = ["userId"],
             childColumns = ["userId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.CASCADE,
+
         )
     ],
     indices = [Index("userId")]
