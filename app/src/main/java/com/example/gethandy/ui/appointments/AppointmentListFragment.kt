@@ -7,9 +7,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
@@ -19,12 +17,12 @@ import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.model.Appointment
 import com.example.gethandy.data.model.AppointmentWithDetails
+import com.example.gethandy.utils.LoadingUtil
 import com.example.gethandy.utils.UserManager
 
 class AppointmentListFragment : Fragment() {
     private lateinit var viewModel: AppointmentsViewModel
     private lateinit var rvAppointments: RecyclerView
-    private lateinit var progressBar: ProgressBar
     private lateinit var tvNoAppointments: TextView
 
     private var adapter: AppointmentsAdapter? = null
@@ -62,7 +60,6 @@ class AppointmentListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         rvAppointments = view.findViewById(R.id.rvAppointments)
-        progressBar = view.findViewById(R.id.progressBar)
         tvNoAppointments = view.findViewById(R.id.tvNoAppointments)
 
         setupAdapter()
@@ -135,13 +132,13 @@ class AppointmentListFragment : Fragment() {
     }
 
     private fun showCancelConfirmation(appointment: Appointment) {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Cancel Appointment")
-            .setMessage("Are you sure you want to cancel this appointment?")
-            .setPositiveButton("Yes") { _, _ ->
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.confirm_cancel_appointment_title))
+            .setMessage(getString(R.string.confirm_cancel_appointment_message))
+            .setPositiveButton(getString(R.string.yes)) { _, _ ->
                 viewModel.cancelAppointment(appointment.appointmentId)
             }
-            .setNegativeButton("No", null)
+            .setNegativeButton(getString(R.string.no), null)
             .show()
     }
 
@@ -173,7 +170,7 @@ class AppointmentListFragment : Fragment() {
         }
 
         viewModel.loading.observe(viewLifecycleOwner) { isLoading ->
-            progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+            LoadingUtil.showLoading(requireContext(), isLoading)
 
             if (!isLoading) {
                 val appointments = if (isPastAppointments)
@@ -182,7 +179,7 @@ class AppointmentListFragment : Fragment() {
                 tvNoAppointments.visibility = if (appointments.isNullOrEmpty()) View.VISIBLE else View.GONE
                 if (appointments.isNullOrEmpty()) {
                     tvNoAppointments.text = if (isPastAppointments)
-                        "No past appointments" else "No upcoming appointments"
+                        getString(R.string.no_past_appointments) else getString(R.string.no_upcoming_appointments)
                 }
             } else {
                 tvNoAppointments.visibility = View.GONE
@@ -202,7 +199,7 @@ class AppointmentListFragment : Fragment() {
         if (appointments.isEmpty() && viewModel.loading.value == false) {
             tvNoAppointments.visibility = View.VISIBLE
             tvNoAppointments.text = if (isPastAppointments)
-                "No past appointments" else "No upcoming appointments"
+                getString(R.string.no_past_appointments) else getString(R.string.no_upcoming_appointments)
         } else {
             tvNoAppointments.visibility = View.GONE
         }

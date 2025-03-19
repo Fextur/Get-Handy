@@ -10,9 +10,6 @@ interface BusinessDao {
     @Query("SELECT * FROM businesses WHERE businessId = :businessId")
     fun getBusinessById(businessId: String): LiveData<Business?>
 
-    @Query("SELECT * FROM businesses")
-    fun getAllBusinesses(): LiveData<List<Business>>
-
     @Transaction
     @Query("SELECT * FROM businesses")
     fun getAllBusinessesWithOwners(): LiveData<List<BusinessWithOwner>>
@@ -22,8 +19,5 @@ interface BusinessDao {
 
     @Delete
     suspend fun deleteBusiness(business: Business)
-
-    @Query("SELECT * FROM businesses")
-    suspend fun getAllBusinessesSync(): List<Business>
 
 }

@@ -1,6 +1,5 @@
 package com.example.gethandy.ui.booking
 
-import android.app.AlertDialog
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -13,6 +12,7 @@ import androidx.navigation.fragment.navArgs
 import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.databinding.FragmentAppointmentBookingBinding
+import com.example.gethandy.utils.DateTimeUtils
 import com.example.gethandy.utils.LoadingUtil
 import com.example.gethandy.utils.NetworkResult
 import com.example.gethandy.utils.SnackbarType
@@ -74,7 +74,7 @@ class AppointmentBookingFragment : Fragment() {
             .setFirstDayOfWeek(Calendar.SUNDAY)
 
         val datePicker = MaterialDatePicker.Builder.datePicker()
-            .setTitleText("Select Appointment Date")
+            .setTitleText(getString(R.string.select_appointment_date))
             .setCalendarConstraints(constraintsBuilder.build())
             .build()
 
@@ -82,8 +82,9 @@ class AppointmentBookingFragment : Fragment() {
             val selectedDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val dateString = selectedDateFormat.format(selection)
 
-            if (!viewModel.isDateAvailable(dateString)) {
-                showSnackbar(binding.root, "Appointments are not available on Saturdays", SnackbarType.ERROR)
+            if (!DateTimeUtils.isDateAvailable(dateString)
+            ) {
+                showSnackbar(binding.root, getString(R.string.error_saturdays_unavailable), SnackbarType.ERROR)
                 return@addOnPositiveButtonClickListener
             }
 
@@ -104,52 +105,44 @@ class AppointmentBookingFragment : Fragment() {
 
     private fun showTimePicker() {
         if (selectedDate == null) {
-            showSnackbar(binding.root, "Please select a date first", SnackbarType.WARNING)
+            showSnackbar(binding.root, getString(R.string.error_select_date_first), SnackbarType.WARNING)
             return
         }
 
         val timeSlots = viewModel.availableTimeSlots.value
         if (timeSlots.isNullOrEmpty()) {
-            showSnackbar(binding.root, "No available time slots for selected date", SnackbarType.ERROR)
+            showSnackbar(binding.root, getString(R.string.error_no_available_slots), SnackbarType.ERROR)
             return
         }
 
-        val timeDialog = AlertDialog.Builder(requireContext())
-            .setTitle("Select Time")
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.select_time_title))
             .setItems(timeSlots.toTypedArray()) { _, which ->
                 selectedTime = timeSlots[which]
                 binding.btnSelectTime.text = selectedTime
                 viewModel.setSelectedTime(selectedTime!!)
                 updateConfirmButtonState()
             }
-            .create()
-
-        timeDialog.show()
+            .show()
     }
 
     private fun confirmAppointment() {
         if (selectedDate == null || selectedTime == null) {
             Log.e(TAG, "confirmAppointment: Missing date or time selection")
-            showSnackbar(binding.root, "Please select both date and time", SnackbarType.WARNING)
+            showSnackbar(binding.root, getString(R.string.error_select_date_time), SnackbarType.WARNING)
             return
         }
 
-        val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val displayFormat = SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault())
-        val date = inputFormat.parse(selectedDate!!)
-        val displayDate = if (date != null) displayFormat.format(date) else selectedDate
+        val displayDate = DateTimeUtils.formatDateForDisplay(selectedDate!!)
 
-        val confirmDialog = AlertDialog.Builder(requireContext())
-            .setTitle("Confirm Appointment")
-            .setMessage("Book appointment on $displayDate at $selectedTime?")
-            .setPositiveButton("Confirm") { _, _ ->
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.confirm_appointment_title))
+            .setMessage(getString(R.string.confirm_appointment_message, displayDate, selectedTime))
+            .setPositiveButton(getString(R.string.confirm)) { _, _ ->
                 viewModel.bookAppointment()
             }
-            .setNegativeButton("Cancel") { _, _ ->
-            }
-            .create()
-
-        confirmDialog.show()
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show()
     }
 
     private fun updateConfirmButtonState() {
@@ -165,7 +158,7 @@ class AppointmentBookingFragment : Fragment() {
                 }
                 is NetworkResult.Success -> {
                     LoadingUtil.showLoading(requireContext(), false)
-                    showSnackbar(binding.root, "Appointment booked successfully", SnackbarType.SUCCESS)
+                    showSnackbar(binding.root, getString(R.string.appointment_booked_success), SnackbarType.SUCCESS)
                     val appointmentId = result.data
                     findNavController().navigate(
                         AppointmentBookingFragmentDirections.actionBookingToAppointments(appointmentId))
@@ -180,14 +173,14 @@ class AppointmentBookingFragment : Fragment() {
 
         viewModel.availableTimeSlots.observe(viewLifecycleOwner) { slots ->
             if (slots.isEmpty() && selectedDate != null) {
-                showSnackbar(binding.root, "No available time slots for selected date", SnackbarType.WARNING)
+                showSnackbar(binding.root, getString(R.string.error_no_available_slots), SnackbarType.WARNING)
             }
         }
 
         viewModel.business.observe(viewLifecycleOwner) { business ->
             if (business === null)  {
                 Log.e(TAG, "observeViewModel: Business data is null")
-                showSnackbar(binding.root, "Could not load business information", SnackbarType.ERROR)
+                showSnackbar(binding.root, getString(R.string.error_business_info_missing), SnackbarType.ERROR)
             }
         }
     }

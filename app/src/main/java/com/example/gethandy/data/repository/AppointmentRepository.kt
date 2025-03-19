@@ -1,6 +1,8 @@
 package com.example.gethandy.data.repository
 
+import android.content.Context
 import android.util.Log
+import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.dao.AppointmentDao
 import com.example.gethandy.data.model.Appointment
@@ -25,7 +27,8 @@ class AppointmentRepository(
     private val appointmentDao: AppointmentDao,
     private val userRepository: UserRepository,
     private val businessRepository: BusinessRepository,
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val context: Context
 ) {
     private val businessCache = ConcurrentHashMap<String, Business>()
     private val userCache = ConcurrentHashMap<String, User>()
@@ -65,11 +68,11 @@ class AppointmentRepository(
                     NetworkResult.Success(appointment.appointmentId)
                 } catch (e: Exception) {
                     Log.e(TAG, "bookAppointment: Error saving to Firestore", e)
-                    return@withContext NetworkResult.Error("Error saving to Firestore: ${e.message}")
+                    return@withContext NetworkResult.Error(context.getString(R.string.error_firestore_save))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "bookAppointment: Unexpected error", e)
-                NetworkResult.Error(e.message ?: "Error booking appointment")
+                NetworkResult.Error(context.getString(R.string.error_booking_general))
             }
         }
     }
@@ -90,7 +93,7 @@ class AppointmentRepository(
                 NetworkResult.Success(true)
             } catch (e: Exception) {
                 Log.e(TAG, "Error canceling appointment")
-                NetworkResult.Error(e.message ?: "Error canceling appointment")
+                NetworkResult.Error(context.getString(R.string.error_cancel_appointment))
             }
         }
     }
@@ -171,7 +174,7 @@ class AppointmentRepository(
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "fetchPaginatedAppointments: ERROR", e)
-                NetworkResult.Error(e.message ?: "Error fetching appointments")
+                NetworkResult.Error(context.getString(R.string.error_fetch_appointments))
             }
         }
     }
@@ -234,7 +237,7 @@ class AppointmentRepository(
                 NetworkResult.Success(appointments)
             } catch (e: Exception) {
                 Log.e(TAG, "fetchAppointmentsForBusinessOnDate: Error", e)
-                NetworkResult.Error(e.message ?: "Error fetching appointments for date")
+                NetworkResult.Error(context.getString(R.string.error_fetch_date_appointments))
             }
         }
     }

@@ -29,7 +29,6 @@ class PhoneFormattingTextWatcher : TextWatcher {
     }
 }
 
-// Extension function to apply phone formatting to any EditText
 fun EditText.applyPhoneFormatting() {
     this.addTextChangedListener(PhoneFormattingTextWatcher())
 }

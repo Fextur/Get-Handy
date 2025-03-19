@@ -6,6 +6,7 @@ import androidx.core.content.ContextCompat
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -143,6 +144,21 @@ object MapUtils {
                 viewLifecycleOwner.lifecycle.removeObserver(this)
             }
         })
+    }
+
+    fun getUserLocation(map: MapLibreMap): LatLng? {
+        return try {
+            val locationComponent = map.locationComponent
+            if (locationComponent.isLocationComponentActivated && locationComponent.lastKnownLocation != null) {
+                val location = locationComponent.lastKnownLocation
+                location?.let { LatLng(it.latitude, location.longitude) }
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("MapUtils", "Error getting user location: ${e.message}")
+            null
+        }
     }
 
     @Suppress("DEPRECATION")

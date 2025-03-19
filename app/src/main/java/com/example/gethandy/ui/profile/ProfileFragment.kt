@@ -1,6 +1,5 @@
 package com.example.gethandy.ui.profile
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
@@ -52,6 +51,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     private var businessLatLng: LatLng? = null
     private var maplibreMap: MapLibreMap? = null
 
+    private var isSaving = false
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -68,7 +69,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        Log.d("ProfileFragment", "onViewCreated called ${UserManager.getUserId(requireContext())}")
 
         userId = args.userId ?: UserManager.getUserId(requireContext())
         isCurrentUser = (userId == UserManager.getUserId(requireContext()))
@@ -90,7 +90,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
         MapUtils.setupMapStyle(maplibreMap) {
             MapUtils.enableUserLocation(maplibreMap, requireContext())
-            if (businessLatLng != null) {
+
+            businessLatLng?.let {
                 updateMapWithBusinessLocation()
             }
 
@@ -102,6 +103,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 businessLatLng = point
                 MapUtils.clearMap(maplibreMap)
                 MapUtils.addMarker(maplibreMap, point)
+                MapUtils.animateCamera(maplibreMap, point)
                 true
             } else false
         }
@@ -109,7 +111,11 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     private fun setupListeners() {
         binding.btnEditProfile.setOnClickListener {
-            if (isEditing) saveProfileChanges() else enableEditMode()
+            if (isEditing) {
+                saveProfileChanges()
+            } else {
+                enableEditMode()
+            }
         }
 
         binding.btnBookAppointment.setOnClickListener {
@@ -119,12 +125,16 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                     ProfileFragmentDirections.actionProfileToAppointmentBooking(localBusinessId)
                 )
             } else {
-                showSnackbar(binding.root, "Unable to book appointment", SnackbarType.ERROR)
+                showSnackbar(binding.root, getString(R.string.error_unable_to_book), SnackbarType.ERROR)
             }
         }
 
-        binding.radioGroupBusiness.setOnCheckedChangeListener { _, _ ->
-            toggleBusinessFields()
+        binding.radioGroupBusiness.setOnCheckedChangeListener { _, checkedId ->
+            updateBusinessVisibility(checkedId == R.id.radioBusinessYes)
+
+            if (checkedId == R.id.radioBusinessYes && businessLatLng == null && isEditing) {
+                centerMapOnUserLocation()
+            }
         }
 
         binding.ivProfilePic.setOnClickListener {
@@ -136,15 +146,27 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         }
 
         binding.etUserPhone.applyPhoneFormatting()
+    }
 
+    private fun updateBusinessVisibility(isVisible: Boolean) {
+        binding.cardBusinessInfo.visibility = if (isVisible) View.VISIBLE else View.GONE
+
+        if (isVisible && isEditing) {
+            binding.tvBusinessName.visibility = View.GONE
+            binding.layoutBusinessName.visibility = View.VISIBLE
+            binding.tvBusinessDescription.visibility = View.GONE
+            binding.layoutBusinessDescription.visibility = View.VISIBLE
+            binding.tvBusinessAddress.visibility = View.GONE
+            binding.layoutBusinessAddress.visibility = View.VISIBLE
+            binding.tvBusinessProfession.visibility = View.GONE
+            binding.layoutBusinessProfession.visibility = View.VISIBLE
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupProfessionAutocomplete() {
-        Log.d(TAG, "Setting up profession autocomplete")
 
-        // Create adapter with empty list
-        val professionAdapter = ArrayAdapter<String>(
+        val professionAdapter = ArrayAdapter(
             requireContext(),
             android.R.layout.simple_dropdown_item_1line,
             ArrayList<String>()
@@ -154,7 +176,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         binding.etBusinessProfession.threshold = 0
 
         binding.etBusinessProfession.setOnClickListener {
-            Log.d(TAG, "Profession field clicked")
             if (professionAdapter.count == 0) {
                 viewModel.searchProfessions("", 15)
             }
@@ -184,7 +205,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 searchJob = lifecycleScope.launch {
                     delay(150)
                     val query = s?.toString() ?: ""
-                    Log.d(TAG, "Text changed to: '$query', searching")
                     viewModel.searchProfessions(query, 15)
                 }
             }
@@ -215,50 +235,52 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             LoadingUtil.showLoading(requireContext(), true)
             viewModel.getUserWithBusiness(uid).observe(viewLifecycleOwner) { userWithBusiness ->
                 userWithBusiness?.let { uwb ->
-                    val user = uwb.user
-                    binding.tvUserName.text = user.fullName
-                    binding.tvUserEmail.text = user.email
-                    binding.tvUserPhone.text = user.phone
+                    if (!isSaving) {
+                        val user = uwb.user
 
-                    binding.etUserName.setText(user.fullName)
-                    binding.etUserPhone.setText(user.phone)
+                        binding.tvUserName.text = user.fullName
+                        binding.tvUserEmail.text = user.email
+                        binding.tvUserPhone.text = user.phone
 
-                    if (user.profilePicUrl.isNotEmpty()) {
-                        Glide.with(this)
-                            .load(user.profilePicUrl)
-                            .placeholder(R.drawable.loading_icon)
-                            .error(R.drawable.student_avatar)
-                            .into(binding.ivProfilePic)
-                    } else {
-                        binding.ivProfilePic.setImageResource(R.drawable.student_avatar)
+                        binding.etUserName.setText(user.fullName)
+                        binding.etUserPhone.setText(user.phone)
+
+                        if (profileImageUri == null) {
+                            if (user.profilePicUrl.isNotEmpty()) {
+                                Glide.with(this)
+                                    .load(user.profilePicUrl)
+                                    .placeholder(R.drawable.loading_icon)
+                                    .error(R.drawable.student_avatar)
+                                    .into(binding.ivProfilePic)
+                            } else {
+                                binding.ivProfilePic.setImageResource(R.drawable.student_avatar)
+                            }
+                        }
+
+                        businessId = user.businessId
+
+                        val business = uwb.business
+                        if (business != null) {
+                            binding.tvBusinessName.text = business.businessName
+                            binding.tvBusinessDescription.text = business.description
+                            binding.tvBusinessAddress.text = business.address
+                            binding.tvBusinessProfession.text = business.profession
+
+                            binding.etBusinessName.setText(business.businessName)
+                            binding.etBusinessDescription.setText(business.description)
+                            binding.etBusinessAddress.setText(business.address)
+                            binding.etBusinessProfession.setText(business.profession)
+
+                            businessLatLng = business.location
+                            updateMapWithBusinessLocation()
+                        }
+
+                        updateUIState()
                     }
 
-                    businessId = user.businessId
-
-                    val business = uwb.business
-                    if (business != null) {
-                        binding.radioBusinessYes.isChecked = true
-
-                        binding.tvBusinessName.text = business.businessName
-                        binding.tvBusinessDescription.text = business.description
-                        binding.tvBusinessAddress.text = business.address
-                        binding.tvBusinessProfession.text = business.profession
-
-                        binding.etBusinessName.setText(business.businessName)
-                        binding.etBusinessDescription.setText(business.description)
-                        binding.etBusinessAddress.setText(business.address)
-                        binding.etBusinessProfession.setText(business.profession)
-
-                        businessLatLng = business.location
-                        updateMapWithBusinessLocation()
-                    } else {
-                        binding.radioBusinessNo.isChecked = true
+                    if (!isSaving) {
+                        LoadingUtil.showLoading(requireContext(), false)
                     }
-
-                    toggleBusinessFields()
-                    updateButtons()
-
-                    LoadingUtil.showLoading(requireContext(), false)
                 }
             }
         }
@@ -266,10 +288,10 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         viewModel.userProfileState.observe(viewLifecycleOwner) { result ->
             when (result) {
                 is NetworkResult.Loading -> {
-                    LoadingUtil.showLoading(requireContext(), true)
+                    if (!isSaving) LoadingUtil.showLoading(requireContext(), true)
                 }
                 is NetworkResult.Success -> {
-                    LoadingUtil.showLoading(requireContext(), false)
+                    if (!isSaving) LoadingUtil.showLoading(requireContext(), false)
                 }
                 is NetworkResult.Error -> {
                     LoadingUtil.showLoading(requireContext(), false)
@@ -282,27 +304,21 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         viewModel.profileUpdateState.observe(viewLifecycleOwner) { result ->
             when (result) {
                 is NetworkResult.Loading -> {
-                    LoadingUtil.showLoading(requireContext(), true)
                 }
                 is NetworkResult.Success -> {
                     isEditing = false
+                    isSaving = false
                     binding.btnEditProfile.text = getString(R.string.edit_profile)
 
-                    toggleField(binding.tvUserName, binding.layoutUserName)
-                    toggleField(binding.tvUserPhone, binding.layoutUserPhone)
+                    userId?.let { viewModel.getUserProfile(it) }
 
-                    binding.tvBusinessQuestion.visibility = View.GONE
-                    binding.radioGroupBusiness.visibility = View.GONE
-                    binding.etBusinessProfession.dismissDropDown()
-
-                    toggleBusinessFields()
-
-                    binding.fabChangeProfilePic.visibility = View.GONE
+                    updateUIState()
 
                     LoadingUtil.showLoading(requireContext(), false)
                     showSnackbar(binding.root, getString(R.string.profile_update_success), SnackbarType.SUCCESS)
                 }
                 is NetworkResult.Error -> {
+                    isSaving = false
                     LoadingUtil.showLoading(requireContext(), false)
                     showSnackbar(binding.root, result.message, SnackbarType.ERROR)
                 }
@@ -310,12 +326,68 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         }
     }
 
+    private fun updateUIState() {
+        binding.tvUserName.visibility = if (isEditing) View.GONE else View.VISIBLE
+        binding.layoutUserName.visibility = if (isEditing) View.VISIBLE else View.GONE
+        binding.tvUserPhone.visibility = if (isEditing) View.GONE else View.VISIBLE
+        binding.layoutUserPhone.visibility = if (isEditing) View.VISIBLE else View.GONE
+
+        binding.tvBusinessQuestion.visibility = if (isEditing) View.VISIBLE else View.GONE
+        binding.radioGroupBusiness.visibility = if (isEditing) View.VISIBLE else View.GONE
+
+        binding.fabChangeProfilePic.visibility = if (isEditing) View.VISIBLE else View.GONE
+
+        if (isEditing) {
+            binding.radioBusinessYes.isChecked = (businessId != null)
+            binding.radioBusinessNo.isChecked = (businessId == null)
+        }
+
+        if (isEditing) {
+            updateBusinessVisibility(binding.radioBusinessYes.isChecked)
+        } else {
+            binding.cardBusinessInfo.visibility = if (businessId != null) View.VISIBLE else View.GONE
+
+            if (businessId != null) {
+                binding.tvBusinessName.visibility = View.VISIBLE
+                binding.layoutBusinessName.visibility = View.GONE
+                binding.tvBusinessDescription.visibility = View.VISIBLE
+                binding.layoutBusinessDescription.visibility = View.GONE
+                binding.tvBusinessAddress.visibility = View.VISIBLE
+                binding.layoutBusinessAddress.visibility = View.GONE
+                binding.tvBusinessProfession.visibility = View.VISIBLE
+                binding.layoutBusinessProfession.visibility = View.GONE
+            }
+        }
+
+        updateButtons()
+
+        if (!isEditing && businessLatLng != null) {
+            updateMapWithBusinessLocation()
+        } else if (isEditing && businessLatLng == null && binding.radioBusinessYes.isChecked) {
+            centerMapOnUserLocation()
+        }
+    }
+
     private fun updateMapWithBusinessLocation() {
         maplibreMap?.let { map ->
             businessLatLng?.let { location ->
-                MapUtils.clearMap(maplibreMap!!)
+                MapUtils.clearMap(map)
                 MapUtils.addMarker(map, location)
-                MapUtils.animateCamera(map, location)
+                MapUtils.animateCamera(map, location, 15.0)
+            }
+        }
+    }
+
+    private fun centerMapOnUserLocation() {
+        maplibreMap?.let { map ->
+            val userLocation = MapUtils.getUserLocation(map)
+            if (userLocation != null) {
+                businessLatLng = userLocation
+                MapUtils.clearMap(map)
+                MapUtils.addMarker(map, userLocation)
+                MapUtils.animateCamera(map, userLocation, 15.0)
+            } else {
+                centerMapOnDefaultLocation()
             }
         }
     }
@@ -335,26 +407,11 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         isEditing = true
         binding.btnEditProfile.text = getString(R.string.save_profile)
 
-        binding.tvBusinessQuestion.visibility = View.VISIBLE
-        binding.radioGroupBusiness.visibility = View.VISIBLE
+        updateUIState()
 
-        toggleField(binding.tvUserName, binding.layoutUserName)
-        toggleField(binding.tvUserPhone, binding.layoutUserPhone)
-
-        toggleBusinessFields()
-
-        if (maplibreMap != null) {
-            val userLocation = MapUtils.enableUserLocation(maplibreMap!!, requireContext())
-            if (userLocation != null && businessLatLng == null) {
-                businessLatLng = userLocation
-                MapUtils.clearMap(maplibreMap!!)
-                MapUtils.addMarker(maplibreMap!!, userLocation)
-            } else if (businessLatLng == null) {
-                centerMapOnDefaultLocation()
-            }
+        if (binding.radioBusinessYes.isChecked && businessLatLng == null) {
+            centerMapOnUserLocation()
         }
-
-        binding.fabChangeProfilePic.visibility = View.VISIBLE
     }
 
     private fun centerMapOnDefaultLocation() {
@@ -423,10 +480,10 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         } == true
     }
 
-
     private fun saveProfileChanges() {
         if (!isProfileValid()) return
 
+        isSaving = true
         LoadingUtil.showLoading(requireContext(), true)
 
         val fullName = binding.etUserName.text.toString().trim()
@@ -457,39 +514,15 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         }
     }
 
-    private fun toggleField(textView: View, editText: View) {
-        textView.visibility = if (isEditing) View.GONE else View.VISIBLE
-        editText.visibility = if (isEditing) View.VISIBLE else View.GONE
-    }
-
-    private fun toggleBusinessFields() {
-        val shouldShowBusinessFields = if (isEditing) {
-            binding.radioBusinessYes.isChecked
-        } else {
-            !businessId.isNullOrEmpty()
-        }
-
-        if (!isEditing) {
-            businessId?.let {
-                binding.radioBusinessYes.isChecked = true
-                binding.radioBusinessNo.isChecked = false
-            }
-        }
-
-        binding.cardBusinessInfo.visibility = if (shouldShowBusinessFields) View.VISIBLE else View.GONE
-        if (shouldShowBusinessFields) {
-            toggleField(binding.tvBusinessName, binding.layoutBusinessName)
-            toggleField(binding.tvBusinessDescription, binding.layoutBusinessDescription)
-            toggleField(binding.tvBusinessAddress, binding.layoutBusinessAddress)
-            toggleField(binding.tvBusinessProfession, binding.layoutBusinessProfession)
-        }
-    }
-
     private val imagePickerLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let {
                 profileImageUri = it
-                binding.ivProfilePic.setImageURI(it)
+                Glide.with(requireContext())
+                    .load(uri)
+                    .placeholder(R.drawable.loading_icon)
+                    .error(R.drawable.student_avatar)
+                    .into(binding.ivProfilePic)
             }
         }
 
@@ -497,14 +530,16 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         imagePickerLauncher.launch("image/*")
     }
 
-    @Override
     override fun onResume() {
         super.onResume()
 
-        userId?.let {
-            viewModel.getUserProfile(it)
+        if (!isEditing && !isSaving) {
+            userId?.let {
+                viewModel.getUserProfile(it)
+            }
         }
     }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

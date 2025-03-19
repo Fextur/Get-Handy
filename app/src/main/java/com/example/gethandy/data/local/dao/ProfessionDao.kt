@@ -9,9 +9,6 @@ import com.example.gethandy.data.model.Profession
 
 @Dao
 interface ProfessionDao {
-    @Query("SELECT * FROM professions ORDER BY name ASC")
-    fun getAllProfessions(): LiveData<List<Profession>>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProfessions(professions: List<Profession>)
 

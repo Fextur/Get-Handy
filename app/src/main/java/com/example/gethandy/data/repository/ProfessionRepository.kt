@@ -13,26 +13,19 @@ import kotlinx.coroutines.withContext
 
 class ProfessionRepository(
     private val professionDao: ProfessionDao,
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
-    fun getAllProfessions(): LiveData<List<Profession>> {
-        return professionDao.getAllProfessions()
-    }
-
     private val _filteredProfessions = MutableLiveData<List<Profession>>()
     val filteredProfessions: LiveData<List<Profession>> = _filteredProfessions
 
     suspend fun searchProfessions(query: String, limit: Int = 15) {
         withContext(Dispatchers.IO) {
             try {
-                Log.d(TAG, "Searching professions with query: '$query', limit: $limit")
-
                 val searchQuery = if (query.isBlank()) {
                     "%"
                 } else {
                     "%${query.trim()}%"
                 }
-
 
                 val localProfessions = if (query.isBlank()) {
                     professionDao.getProfessionsWithLimit(limit)
@@ -47,6 +40,7 @@ class ProfessionRepository(
             }
         }
     }
+
     suspend fun refreshProfessions() {
         withContext(Dispatchers.IO) {
             try {

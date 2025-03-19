@@ -1,13 +1,12 @@
 package com.example.gethandy.data.repository
 
+import android.content.Context
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.dao.BusinessDao
 import com.example.gethandy.data.local.dao.UserDao
 import com.example.gethandy.data.model.Business
-import com.example.gethandy.data.model.BusinessWithOwner
 import com.example.gethandy.data.model.User
 import com.example.gethandy.utils.NetworkResult
 import com.firebase.geofire.GeoFireUtils
@@ -22,7 +21,8 @@ import org.maplibre.android.geometry.LatLng
 class BusinessRepository(
     private val businessDao: BusinessDao,
     private val userDao: UserDao,
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val context: Context
 ) {
     suspend fun getNearbyBusinesses(center: LatLng, radiusInKm: Double): NetworkResult<List<Business>> {
         return withContext(Dispatchers.IO) {
@@ -117,7 +117,7 @@ class BusinessRepository(
                 NetworkResult.Success(matchingBusinesses)
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching nearby businesses", e)
-                NetworkResult.Error(e.message ?: "Error fetching nearby businesses")
+                NetworkResult.Error(context.getString(R.string.error_nearby_businesses))
             }
         }
     }
@@ -180,7 +180,7 @@ class BusinessRepository(
                 NetworkResult.Success(newBusinessId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving business")
-                NetworkResult.Error(e.message ?: "Error saving business")
+                NetworkResult.Error(context.getString(R.string.error_saving_business))
             }
         }
     }
@@ -198,7 +198,7 @@ class BusinessRepository(
                 NetworkResult.Success(true)
             } catch (e: Exception) {
                 Log.e(TAG, "Error deleting business")
-                NetworkResult.Error(e.message ?: "Error deleting business")
+                NetworkResult.Error(context.getString(R.string.error_deleting_business))
             }
         }
     }
@@ -215,24 +215,24 @@ class BusinessRepository(
 
                 if (!doc.exists()) {
                     Log.e(TAG, "getBusinessById: Business not found in Firestore")
-                    return@withContext NetworkResult.Error("Business not found")
+                    return@withContext NetworkResult.Error(context.getString(R.string.error_business_not_found))
                 }
 
                 val userId = doc.getString("userId") ?:
-                return@withContext NetworkResult.Error("Invalid business data")
+                return@withContext NetworkResult.Error(context.getString(R.string.error_invalid_business_data))
                 val businessName = doc.getString("businessName") ?:
-                return@withContext NetworkResult.Error("Invalid business data")
+                return@withContext NetworkResult.Error(context.getString(R.string.error_invalid_business_data))
                 val description = doc.getString("description") ?: ""
                 val address = doc.getString("address") ?: ""
                 val profession = doc.getString("profession") ?: ""
                 val geoHash = doc.getString("geoHash") ?: ""
 
                 val locationMap = doc.get("location") as? Map<*, *> ?:
-                return@withContext NetworkResult.Error("Invalid location data")
+                return@withContext NetworkResult.Error(context.getString(R.string.error_invalid_location_data))
                 val lat = locationMap["latitude"] as? Double ?:
-                return@withContext NetworkResult.Error("Invalid location data")
+                return@withContext NetworkResult.Error(context.getString(R.string.error_invalid_location_data))
                 val lng = locationMap["longitude"] as? Double ?:
-                return@withContext NetworkResult.Error("Invalid location data")
+                return@withContext NetworkResult.Error(context.getString(R.string.error_invalid_location_data))
                 val location = LatLng(lat, lng)
 
                 val business = Business(
@@ -255,7 +255,7 @@ class BusinessRepository(
                 NetworkResult.Success(business)
             } catch (e: Exception) {
                 Log.e(TAG, "getBusinessById: Error fetching business", e)
-                NetworkResult.Error(e.message ?: "Error fetching business")
+                NetworkResult.Error(context.getString(R.string.error_business_not_found))
             }
         }
     }

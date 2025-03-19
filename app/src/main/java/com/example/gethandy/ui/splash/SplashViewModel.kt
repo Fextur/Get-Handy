@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 
 class SplashViewModel(application: Application) : AndroidViewModel(application) {
     private val userDao = AppDatabase.getDatabase(application).userDao()
-    private val userRepository = UserRepository(userDao)
+    private val userRepository = UserRepository(userDao, context = getApplication())
 
     private val _isUserLoggedIn = MutableLiveData<Boolean>()
     val isUserLoggedIn: LiveData<Boolean> = _isUserLoggedIn

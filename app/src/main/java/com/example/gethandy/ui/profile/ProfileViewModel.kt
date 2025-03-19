@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.AppDatabase
 import com.example.gethandy.data.model.User
@@ -23,8 +24,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val businessDao = AppDatabase.getDatabase(application).businessDao()
     private val professionDao = AppDatabase.getDatabase(application).professionDao()
 
-    private val userRepository = UserRepository(userDao)
-    private val businessRepository = BusinessRepository(businessDao, userDao)
+    private val userRepository = UserRepository(userDao, context = getApplication())
+    private val businessRepository = BusinessRepository(businessDao, userDao, context = getApplication())
     private val professionRepository = ProfessionRepository(professionDao)
 
     private val _userProfileState = MutableLiveData<NetworkResult<User>>()
@@ -43,7 +44,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 _userProfileState.value = result
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading user profile")
-                _userProfileState.value = NetworkResult.Error(e.message ?: "Error loading profile")
+                _userProfileState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_loading_user_profile))
             }
         }
     }
@@ -82,13 +83,12 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
                         if (businessResult is NetworkResult.Success) {
                             newBusinessId = businessResult.data
-                            Log.d(TAG, "Updated business ID: $newBusinessId")
                         } else if (businessResult is NetworkResult.Error) {
-                            _profileUpdateState.value = NetworkResult.Error("Failed to update business: ${businessResult.message}")
+                            _profileUpdateState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_business_update_failed))
                             return@launch
                         }
                     } else {
-                        _profileUpdateState.value = NetworkResult.Error("Missing business details")
+                        _profileUpdateState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_missing_business_details))
                         return@launch
                     }
                 } else if (businessId !== null) {
@@ -103,9 +103,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                     val imageResult = userRepository.uploadProfileImage(userId, profileImageUri)
                     if (imageResult is NetworkResult.Success) {
                         profileImageUrl = imageResult.data
-                        Log.d(TAG, "Updated profile image: $profileImageUrl")
                     } else if (imageResult is NetworkResult.Error) {
-                        _profileUpdateState.value = NetworkResult.Error("Failed to upload image: ${imageResult.message}")
+                        _profileUpdateState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_image_upload_failed))
                         return@launch
                     }
                 }
@@ -121,21 +120,19 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 if (userResult is NetworkResult.Success) {
                     userRepository.loadUser(userId)
                     _profileUpdateState.value = NetworkResult.Success(true)
-                    Log.d(TAG, "Profile updated successfully")
                 } else if (userResult is NetworkResult.Error) {
-                    _profileUpdateState.value = NetworkResult.Error("Failed to update profile: ${userResult.message}")
+                    _profileUpdateState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_profile_update_failed))
                 }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error in complete profile update", e)
-                _profileUpdateState.value = NetworkResult.Error(e.message ?: "Error updating profile")
+                _profileUpdateState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_updating_profile))
             }
         }
     }
 
     fun searchProfessions(query: String, limit: Int = 15) {
         viewModelScope.launch {
-            Log.d(TAG, "ViewModel searching professions: '$query'")
             professionRepository.searchProfessions(query, limit)
         }
     }
@@ -143,7 +140,6 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun refreshProfessions() {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "ViewModel refreshing professions")
                 professionRepository.refreshProfessions()
 
                 professionRepository.searchProfessions("", 15)
@@ -151,7 +147,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 Log.e(TAG, "Error refreshing professions: ${e.message}")
             }
         }
-       }
+    }
 }
 
 data class BusinessDetails(

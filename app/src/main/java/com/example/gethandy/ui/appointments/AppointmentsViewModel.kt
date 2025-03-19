@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.AppDatabase
 import com.example.gethandy.data.model.Appointment
@@ -22,9 +23,9 @@ class AppointmentsViewModel(application: Application) : AndroidViewModel(applica
     private val userDao = AppDatabase.getDatabase(application).userDao()
     private val businessDao = AppDatabase.getDatabase(application).businessDao()
 
-    private val userRepository = UserRepository(userDao)
-    private val businessRepository = BusinessRepository(businessDao, userDao)
-    private val appointmentRepository = AppointmentRepository(appointmentDao, userRepository, businessRepository)
+    private val userRepository = UserRepository(userDao, context = getApplication())
+    private val businessRepository = BusinessRepository(businessDao, userDao, context = getApplication())
+    private val appointmentRepository = AppointmentRepository(appointmentDao, userRepository, businessRepository, context = getApplication())
 
     private val _upcomingAppointments = MutableLiveData<List<AppointmentWithDetails>>(emptyList())
     val upcomingAppointments: LiveData<List<AppointmentWithDetails>> = _upcomingAppointments
@@ -110,6 +111,7 @@ class AppointmentsViewModel(application: Application) : AndroidViewModel(applica
                 val userId = UserManager.getUserId(getApplication()) ?: run {
                     Log.e(TAG, "ViewModel: userId is null")
                     _loading.postValue(false)
+                    _error.postValue(getApplication<Application>().getString(R.string.error_user_not_logged_in))
                     if (isUpcoming) isLoadingUpcoming = false else isLoadingPast = false
                     return@launch
                 }
@@ -117,7 +119,7 @@ class AppointmentsViewModel(application: Application) : AndroidViewModel(applica
                 val userResult = userRepository.loadUser(userId)
                 if (userResult !is NetworkResult.Success) {
                     Log.e(TAG, "ViewModel: Error loading user: ${(userResult as? NetworkResult.Error)?.message}")
-                    _error.postValue((userResult as? NetworkResult.Error)?.message)
+                    _error.postValue(getApplication<Application>().getString(R.string.error_loading_user_profile))
                     _loading.postValue(false)
                     if (isUpcoming) isLoadingUpcoming = false else isLoadingPast = false
                     return@launch
@@ -172,13 +174,13 @@ class AppointmentsViewModel(application: Application) : AndroidViewModel(applica
                     }
                     is NetworkResult.Error -> {
                         Log.e(TAG, "ViewModel: Error fetching appointments: ${result.message}")
-                        _error.postValue(result.message)
+                        _error.postValue(getApplication<Application>().getString(R.string.error_loading_appointments))
                     }
                     else -> {}
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "ViewModel: Error in loadAppointments: ${e.message}")
-                _error.postValue(e.message ?: "Unknown error occurred")
+                _error.postValue(getApplication<Application>().getString(R.string.error_loading_appointments))
             } finally {
                 _loading.postValue(false)
                 if (isUpcoming) isLoadingUpcoming = false else isLoadingPast = false
@@ -199,7 +201,7 @@ class AppointmentsViewModel(application: Application) : AndroidViewModel(applica
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "ViewModel: Error canceling appointment: ${e.message}")
-                _cancelResult.postValue(NetworkResult.Error(e.message ?: "Error canceling appointment"))
+                _cancelResult.postValue(NetworkResult.Error(getApplication<Application>().getString(R.string.error_canceling_appointment)))
             }
         }
     }

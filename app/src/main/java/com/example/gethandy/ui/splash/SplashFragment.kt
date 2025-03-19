@@ -9,6 +9,7 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.example.gethandy.R
 import com.example.gethandy.databinding.FragmentSplashBinding
+import com.example.gethandy.utils.LoadingUtil
 
 class SplashFragment : Fragment() {
 
@@ -34,7 +35,7 @@ class SplashFragment : Fragment() {
 
     private fun observeViewModel() {
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
-            binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+            LoadingUtil.showLoading(requireContext(), isLoading)
         }
 
         viewModel.isUserLoggedIn.observe(viewLifecycleOwner) { isLoggedIn ->

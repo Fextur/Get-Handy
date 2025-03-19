@@ -1,8 +1,6 @@
 package com.example.gethandy.utils
 
 import android.content.Context
-import android.content.SharedPreferences
-import com.google.firebase.auth.FirebaseAuth
 
 object UserManager {
     private const val PREF_NAME = "user_prefs"
@@ -23,7 +21,4 @@ object UserManager {
         prefs.edit().remove(KEY_USER_ID).apply()
     }
 
-    fun isUserLoggedIn(context: Context): Boolean {
-        return getUserId(context) != null
-    }
 }

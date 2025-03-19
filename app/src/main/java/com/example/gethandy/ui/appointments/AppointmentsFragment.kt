@@ -9,7 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
@@ -69,7 +68,7 @@ class AppointmentsFragment : Fragment() {
         viewPager.adapter = pagerAdapter
 
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-            tab.text = if (position == 0) "Upcoming" else "Past"
+            tab.text = if (position == 0) getString(R.string.upcoming) else getString(R.string.past)
         }.attach()
 
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
@@ -98,7 +97,7 @@ class AppointmentsFragment : Fragment() {
         viewModel.cancelResult.observe(viewLifecycleOwner) { result ->
             when (result) {
                 is NetworkResult.Success -> {
-                    showSnackbar(requireView(), "Appointment cancelled successfully", SnackbarType.SUCCESS)
+                    showSnackbar(requireView(), getString(R.string.appointment_canceled_success), SnackbarType.SUCCESS)
                     viewModel.resetCancelResult()
                 }
                 is NetworkResult.Error -> {

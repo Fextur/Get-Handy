@@ -7,9 +7,6 @@ import com.example.gethandy.data.model.UserWithBusiness
 
 @Dao
 interface UserDao {
-    @Query("SELECT * FROM users WHERE userId = :userId")
-    fun getUserById(userId: String): LiveData<User?>
-
     @Transaction
     @Query("SELECT * FROM users WHERE userId = :userId")
     fun getUserWithBusiness(userId: String): LiveData<UserWithBusiness?>

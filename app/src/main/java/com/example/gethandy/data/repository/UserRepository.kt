@@ -1,27 +1,27 @@
 package com.example.gethandy.data.repository
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.LiveData
-import com.cloudinary.android.MediaManager
-import com.cloudinary.android.callback.ErrorInfo
-import com.cloudinary.android.callback.UploadCallback
+import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.dao.UserDao
 import com.example.gethandy.data.model.User
 import com.example.gethandy.data.model.UserWithBusiness
+import com.example.gethandy.utils.ImageUploadService
 import com.example.gethandy.utils.NetworkResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 class UserRepository(
     private val userDao: UserDao,
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
+    private val context: Context
 ) {
     fun getUserWithBusiness(userId: String): LiveData<UserWithBusiness?> {
         return userDao.getUserWithBusiness(userId)
@@ -36,7 +36,7 @@ class UserRepository(
         return withContext(Dispatchers.IO) {
             try {
                 val authResult = auth.createUserWithEmailAndPassword(email, password).await()
-                val userId = authResult.user?.uid ?: return@withContext NetworkResult.Error("Failed to create user")
+                val userId = authResult.user?.uid ?: return@withContext NetworkResult.Error(context.getString(R.string.error_creating_user))
 
                 val user = User(
                     userId = userId,
@@ -61,7 +61,7 @@ class UserRepository(
                 NetworkResult.Success(userId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error registering user")
-                NetworkResult.Error(e.message ?: "Unknown error occurred")
+                NetworkResult.Error(e.message ?: context.getString(R.string.error_unknown))
             }
         }
     }
@@ -70,12 +70,12 @@ class UserRepository(
         return withContext(Dispatchers.IO) {
             try {
                 val authResult = auth.signInWithEmailAndPassword(email, password).await()
-                val userId = authResult.user?.uid ?: return@withContext NetworkResult.Error("Login failed")
+                val userId = authResult.user?.uid ?: return@withContext NetworkResult.Error(context.getString(R.string.error_login_failed))
 
                 NetworkResult.Success(userId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error logging in user")
-                NetworkResult.Error(e.message ?: "Invalid credentials")
+                NetworkResult.Error(context.getString(R.string.error_invalid_credentials))
             }
         }
     }
@@ -105,11 +105,11 @@ class UserRepository(
 
                     NetworkResult.Success(user)
                 } else {
-                    NetworkResult.Error("User not found")
+                    NetworkResult.Error(context.getString(R.string.error_user_not_found))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading user data")
-                NetworkResult.Error(e.message ?: "Error loading user data")
+                NetworkResult.Error(context.getString(R.string.error_loading_user_data))
             }
         }
     }
@@ -126,7 +126,6 @@ class UserRepository(
                 val updates = mutableMapOf<String, Any?>()
                 updates["fullName"] = fullName
                 updates["phone"] = phone
-                Log.d(TAG, "business ID: $businessId")
                 if (businessId != null) {
                     updates["businessId"] = businessId
                 } else {
@@ -137,7 +136,6 @@ class UserRepository(
                     updates["profilePicUrl"] = profileImageUrl
                 }
 
-                Log.d(TAG, "business ID2: ${updates["businessId"]}")
                 firestore.collection("users").document(userId).update(updates).await()
 
                 val userDoc = firestore.collection("users").document(userId).get().await()
@@ -156,11 +154,11 @@ class UserRepository(
 
                     NetworkResult.Success(updatedUser)
                 } else {
-                    NetworkResult.Error("User not found in Firestore")
+                    NetworkResult.Error(context.getString(R.string.error_user_not_found))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating user profile", e)
-                NetworkResult.Error(e.message ?: "Error updating profile")
+                NetworkResult.Error(context.getString(R.string.error_updating_profile))
             }
         }
     }
@@ -168,53 +166,21 @@ class UserRepository(
     suspend fun uploadProfileImage(userId: String, imageUri: Uri): NetworkResult<String> {
         return withContext(Dispatchers.IO) {
             try {
-                val requestId = "$userId-${UUID.randomUUID()}"
-
-                val imageUrl = uploadImageToCloudinary(imageUri, requestId)
+                val imageUrl = ImageUploadService.uploadImage(imageUri, "user-profile-$userId")
 
                 if (imageUrl != null) {
                     NetworkResult.Success(imageUrl)
                 } else {
-                    NetworkResult.Error("Failed to upload image")
+                    NetworkResult.Error(context.getString(R.string.error_upload_image))
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error uploading profile image", e)
-                NetworkResult.Error(e.message ?: "Error uploading profile image")
+                Log.e(TAG, "Error uploading profile image: ${e.message}")
+                NetworkResult.Error(context.getString(R.string.error_upload_image))
             }
         }
     }
 
     fun signOut() {
         auth.signOut()
-    }
-
-    private suspend fun uploadImageToCloudinary(imageUri: Uri, requestId: String): String? = withContext(Dispatchers.IO) {
-        try {
-            val result = kotlin.coroutines.suspendCoroutine { continuation ->
-                MediaManager.get().upload(imageUri)
-                    .option("resource_type", "image")
-                    .option("public_id", requestId)
-                    .callback(object : UploadCallback {
-                        override fun onSuccess(requestId: String?, resultData: MutableMap<Any?, Any?>?) {
-                            val imageUrl = resultData?.get("secure_url") as? String
-                            continuation.resumeWith(Result.success(imageUrl))
-                        }
-
-                        override fun onError(requestId: String?, error: ErrorInfo?) {
-                            Log.e(TAG, "Cloudinary upload error: ${error?.description}")
-                            continuation.resumeWith(Result.success(null))
-                        }
-
-                        override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
-                        override fun onStart(requestId: String?) {}
-                        override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
-                    })
-                    .dispatch()
-            }
-            result
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in Cloudinary upload", e)
-            null
-        }
     }
 }

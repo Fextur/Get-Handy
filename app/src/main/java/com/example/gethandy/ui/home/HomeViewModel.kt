@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.AppDatabase
 import com.example.gethandy.data.model.Business
@@ -22,8 +23,8 @@ import kotlin.math.abs
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val userDao = AppDatabase.getDatabase(application).userDao()
     private val businessDao = AppDatabase.getDatabase(application).businessDao()
-    private val userRepository = UserRepository(userDao)
-    private val businessRepository = BusinessRepository(businessDao, userDao)
+    private val userRepository = UserRepository(userDao, context = getApplication())
+    private val businessRepository = BusinessRepository(businessDao, userDao, context = getApplication())
 
     private val _nearbyBusinesses = MutableLiveData<NetworkResult<List<Business>>>()
     val nearbyBusinesses: LiveData<NetworkResult<List<Business>>> = _nearbyBusinesses
@@ -61,7 +62,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching nearby businesses")
-                _nearbyBusinesses.value = NetworkResult.Error(e.message ?: "Error fetching nearby businesses")
+                _nearbyBusinesses.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_fetching_nearby_businesses))
             }
         }
     }

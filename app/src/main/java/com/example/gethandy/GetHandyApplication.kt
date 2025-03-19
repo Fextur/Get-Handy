@@ -13,7 +13,6 @@ class GetHandyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize Cloudinary here if needed
         initializeCloudinary()
     }
 
