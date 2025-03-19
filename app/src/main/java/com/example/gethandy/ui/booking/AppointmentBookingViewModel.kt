@@ -12,6 +12,7 @@ import com.example.gethandy.data.local.AppDatabase
 import com.example.gethandy.data.model.Business
 import com.example.gethandy.data.repository.AppointmentRepository
 import com.example.gethandy.data.repository.BusinessRepository
+import com.example.gethandy.data.repository.UserRepository
 import com.example.gethandy.utils.NetworkResult
 import com.example.gethandy.utils.UserManager
 import kotlinx.coroutines.launch
@@ -25,8 +26,9 @@ class AppointmentBookingViewModel(application: Application) : AndroidViewModel(a
     private val businessDao = AppDatabase.getDatabase(application).businessDao()
     private val userDao = AppDatabase.getDatabase(application).userDao()
 
-    private val appointmentRepository = AppointmentRepository(appointmentDao)
+    private val userRepository = UserRepository(userDao)
     private val businessRepository = BusinessRepository(businessDao, userDao)
+    private val appointmentRepository = AppointmentRepository(appointmentDao, userRepository, businessRepository)
 
     private val _selectedDate = MutableLiveData<String>()
 

@@ -10,7 +10,6 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.gethandy.R
-import com.example.gethandy.ui.adapters.BusinessAdapter
 import com.example.gethandy.data.model.Business
 import com.example.gethandy.ui.appointments.AppointmentsFragmentDirections
 import com.firebase.geofire.GeoFireUtils
@@ -25,7 +24,6 @@ class SearchFragment : Fragment() {
     private lateinit var etSearch: EditText
     private lateinit var chipGroupFilters: ChipGroup
 
-    // Create sample business data that matches our new model
     private val businessesList = mutableListOf(
         Business(
             businessId = "1",

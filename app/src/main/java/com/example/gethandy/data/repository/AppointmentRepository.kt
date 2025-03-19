@@ -1,33 +1,34 @@
 package com.example.gethandy.data.repository
 
 import android.util.Log
-import androidx.lifecycle.LiveData
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.dao.AppointmentDao
 import com.example.gethandy.data.model.Appointment
 import com.example.gethandy.data.model.AppointmentWithDetails
+import com.example.gethandy.data.model.Business
+import com.example.gethandy.data.model.User
 import com.example.gethandy.utils.NetworkResult
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 class AppointmentRepository(
     private val appointmentDao: AppointmentDao,
+    private val userRepository: UserRepository,
+    private val businessRepository: BusinessRepository,
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
-    fun getAppointmentWithDetails(appointmentId: String): LiveData<AppointmentWithDetails?> {
-        return appointmentDao.getAppointmentWithDetails(appointmentId)
-    }
-
-    fun getAppointmentsForUser(userId: String): LiveData<List<AppointmentWithDetails>> {
-        return appointmentDao.getAppointmentsForUser(userId)
-    }
-
-    fun getAppointmentsForBusiness(businessId: String): LiveData<List<AppointmentWithDetails>> {
-        return appointmentDao.getAppointmentsForBusiness(businessId)
-    }
+    private val businessCache = ConcurrentHashMap<String, Business>()
+    private val userCache = ConcurrentHashMap<String, User>()
 
     suspend fun bookAppointment(
         userId: String,
@@ -37,7 +38,6 @@ class AppointmentRepository(
     ): NetworkResult<String> {
         return withContext(Dispatchers.IO) {
             try {
-
                 val appointmentData = mapOf(
                     "userId" to userId,
                     "businessId" to businessId,
@@ -95,83 +95,111 @@ class AppointmentRepository(
         }
     }
 
-    suspend fun fetchAppointmentsForUser(userId: String): NetworkResult<List<Appointment>> {
+    suspend fun fetchPaginatedAppointments(
+        userId: String,
+        businessId: String?,
+        isUpcoming: Boolean,
+        limit: Int = 15,
+        excludeIds: Set<String> = emptySet()
+    ): NetworkResult<List<Appointment>> {
         return withContext(Dispatchers.IO) {
             try {
-                val snapshot = firestore.collection("appointments")
-                    .whereEqualTo("userId", userId)
-                    .get()
-                    .await()
+                val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
-                val appointments = snapshot.documents.mapNotNull { doc ->
-                    try {
-                        val appointmentId = doc.getString("appointmentId") ?: return@mapNotNull null
-                        val businessId = doc.getString("businessId") ?: return@mapNotNull null
-                        val date = doc.getString("date") ?: return@mapNotNull null
-                        val time = doc.getString("time") ?: return@mapNotNull null
-
-                        val appointment = Appointment(
-                            appointmentId = appointmentId,
-                            userId = userId,
-                            businessId = businessId,
-                            date = date,
-                            time = time
-                        )
-
-                        appointmentDao.insertAppointment(appointment)
-
-                        appointment
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing appointment document")
-                        null
+                return@withContext coroutineScope {
+                    val userAppointmentsDeferred = async {
+                        firestore.collection("appointments")
+                            .whereEqualTo("userId", userId)
+                            .get()
+                            .await()
+                            .documents
+                            .mapNotNull { processAppointmentDocument(it) }
                     }
-                }
 
-                NetworkResult.Success(appointments)
+                    val businessAppointmentsDeferred = if (businessId != null) {
+                        async {
+                            firestore.collection("appointments")
+                                .whereEqualTo("businessId", businessId)
+                                .get()
+                                .await()
+                                .documents
+                                .mapNotNull { processAppointmentDocument(it) }
+                        }
+                    } else null
+
+                    val userAppointments = userAppointmentsDeferred.await()
+                    val businessAppointments = businessAppointmentsDeferred?.await() ?: emptyList()
+
+                    val allAppointments = (userAppointments + businessAppointments)
+                        .distinctBy { it.appointmentId }
+                        .filter { !excludeIds.contains(it.appointmentId) }
+                        .filter { appointment ->
+                            if (isUpcoming) {
+                                if (appointment.date > currentDate) {
+                                    true
+                                }
+                                else if (appointment.date == currentDate) {
+                                    appointment.time > currentTime
+                                }
+                                else {
+                                    false
+                                }
+                            } else {
+                                if (appointment.date < currentDate) {
+                                    true
+                                }
+                                else if (appointment.date == currentDate) {
+                                    appointment.time <= currentTime
+                                }
+                                else {
+                                    false
+                                }
+                            }
+                        }
+                        .let { it ->
+                            if (isUpcoming) {
+                                it.sortedWith(compareBy({ it.date }, { it.time }))
+                            } else {
+                                it.sortedWith(compareByDescending<Appointment> { it.date }
+                                    .thenByDescending { it.time })
+                            }
+                        }
+                        .take(limit)
+
+                    NetworkResult.Success(allAppointments)
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error fetching appointments")
+                Log.e(TAG, "fetchPaginatedAppointments: ERROR", e)
                 NetworkResult.Error(e.message ?: "Error fetching appointments")
             }
         }
     }
 
-    suspend fun fetchAppointmentsForBusiness(businessId: String): NetworkResult<List<Appointment>> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val snapshot = firestore.collection("appointments")
-                    .whereEqualTo("businessId", businessId)
-                    .get()
-                    .await()
+    private fun processAppointmentDocument(doc: DocumentSnapshot): Appointment? {
+        return try {
+            val appointmentId = doc.id
+            val userId = doc.getString("userId")
+            val businessId = doc.getString("businessId")
+            val date = doc.getString("date")
+            val time = doc.getString("time")
 
-                val appointments = snapshot.documents.mapNotNull { doc ->
-                    try {
-                        val appointmentId = doc.id
-                        val userId = doc.getString("userId") ?: return@mapNotNull null
-                        val date = doc.getString("date") ?: return@mapNotNull null
-                        val time = doc.getString("time") ?: return@mapNotNull null
-
-                        val appointment = Appointment(
-                            appointmentId = appointmentId,
-                            userId = userId,
-                            businessId = businessId,
-                            date = date,
-                            time = time
-                        )
-
-                        appointmentDao.insertAppointment(appointment)
-
-                        appointment
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing appointment document")
-                        null
-                    }
-                }
-
-                NetworkResult.Success(appointments)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error fetching business appointments")
-                NetworkResult.Error(e.message ?: "Error fetching business appointments")
+            if (userId == null || businessId == null || date == null || time == null) {
+                Log.e(TAG, "processAppointmentDocument: missing fields in doc ${doc.id}")
+                return null
             }
+
+            val appointment = Appointment(
+                appointmentId = appointmentId,
+                userId = userId,
+                businessId = businessId,
+                date = date,
+                time = time
+            )
+            appointment
+        } catch (e: Exception) {
+            Log.e(TAG, "processAppointmentDocument: error parsing doc ${doc.id}", e)
+            null
         }
     }
 
@@ -184,24 +212,19 @@ class AppointmentRepository(
                     .get()
                     .await()
 
-
                 val appointments = snapshot.documents.mapNotNull { doc ->
                     try {
                         val appointmentId = doc.id
                         val userId = doc.getString("userId") ?: return@mapNotNull null
                         val time = doc.getString("time") ?: return@mapNotNull null
 
-                        val appointment = Appointment(
+                        Appointment(
                             appointmentId = appointmentId,
                             userId = userId,
                             businessId = businessId,
                             date = date,
                             time = time
                         )
-
-                        appointmentDao.insertAppointment(appointment)
-
-                        appointment
                     } catch (e: Exception) {
                         Log.e(TAG, "fetchAppointmentsForBusinessOnDate: Error parsing document", e)
                         null
@@ -212,6 +235,66 @@ class AppointmentRepository(
             } catch (e: Exception) {
                 Log.e(TAG, "fetchAppointmentsForBusinessOnDate: Error", e)
                 NetworkResult.Error(e.message ?: "Error fetching appointments for date")
+            }
+        }
+    }
+
+    fun getTimestampFromAppointment(appointment: Appointment): String {
+        return "${appointment.date}|${appointment.time}"
+    }
+
+    suspend fun getAppointmentsWithDetails(appointments: List<Appointment>): List<AppointmentWithDetails> {
+        if (appointments.isEmpty()) return emptyList()
+
+        return coroutineScope {
+            val userIds = appointments.map { it.userId }.distinct()
+            val businessIds = appointments.map { it.businessId }.distinct()
+
+            val usersDeferred = userIds.map { userId ->
+                async {
+                    if (userCache.containsKey(userId)) {
+                        userId to userCache[userId]!!
+                    } else {
+                        val result = userRepository.loadUser(userId)
+                        if (result is NetworkResult.Success) {
+                            userCache[userId] = result.data
+                            userId to result.data
+                        } else null
+                    }
+                }
+            }
+
+            val businessDeferred = businessIds.map { businessId ->
+                async {
+                    if (businessCache.containsKey(businessId)) {
+                        businessId to businessCache[businessId]!!
+                    } else {
+                        val result = businessRepository.getBusinessById(businessId)
+                        if (result is NetworkResult.Success) {
+                            businessCache[businessId] = result.data
+                            businessId to result.data
+                        } else null
+                    }
+                }
+            }
+
+            val usersMap = usersDeferred.awaitAll().filterNotNull().toMap()
+            val businessesMap = businessDeferred.awaitAll().filterNotNull().toMap()
+
+            appointments.mapNotNull { appointment ->
+                try {
+                    val user = usersMap[appointment.userId] ?: return@mapNotNull null
+                    val business = businessesMap[appointment.businessId] ?: return@mapNotNull null
+
+                    AppointmentWithDetails(
+                        appointment = appointment,
+                        user = user,
+                        business = business
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error building AppointmentWithDetails: ${e.message}")
+                    null
+                }
             }
         }
     }

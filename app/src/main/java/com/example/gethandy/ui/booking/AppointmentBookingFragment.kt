@@ -166,7 +166,9 @@ class AppointmentBookingFragment : Fragment() {
                 is NetworkResult.Success -> {
                     LoadingUtil.showLoading(requireContext(), false)
                     showSnackbar(binding.root, "Appointment booked successfully", SnackbarType.SUCCESS)
-                    findNavController().navigate(R.id.action_booking_to_appointments)
+                    val appointmentId = result.data
+                    findNavController().navigate(
+                        AppointmentBookingFragmentDirections.actionBookingToAppointments(appointmentId))
                 }
                 is NetworkResult.Error -> {
                     Log.e(TAG, "observeViewModel: Error - ${result.message}")

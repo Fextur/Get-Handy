@@ -76,5 +76,13 @@
     <string name="profession_dots">Profession:</string>
     <string name="address_dots">Address:</string>
     <string name="book_your_appointment">Book Your Appointment</string>
-    <string name="appointments_are_available_sunday_friday_n_appointment_duration_30_minutes_n_business_hours_8_00_am_8_00_pm_n_friday_hours_8_00_am_2_00_pm_n_no_appointments_on_saturday">• Appointments are available Sunday-Friday\n• Appointment duration: 30 minutes\n• Business hours: 8:00 AM - 8:00 PM\n• Friday hours: 8:00 AM - 2:00 PM\n• No appointments on Saturday</string>
+    <string name="leave_review">Leave a Review</string>
+    <string name="no_upcoming_appointments">No upcoming appointments</string>
+    <string name="no_past_appointments">No past appointments</string>
+    <string name="no_appointments_found">No appointments found</string>
+    <string name="customer_with_name">Customer: %1$s</string>
+    <string name="phone_with_number">Phone: %1$s</string>
+    <string name="business_with_name">Business: %1$s</string>
+    <string name="service_with_profession">Service: %1$s</string>
+    <string name="leave_a_review">Leave a Review</string>
 </resources>

@@ -1,125 +1,142 @@
 package com.example.gethandy.ui.appointments
 
-import android.app.AlertDialog
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.RecyclerView
+import androidx.navigation.fragment.navArgs
+import androidx.viewpager2.adapter.FragmentStateAdapter
+import androidx.viewpager2.widget.ViewPager2
 import com.example.gethandy.R
-import com.example.gethandy.ui.adapters.AppointmentsAdapter
-import com.example.gethandy.data.model.Appointment
-import com.example.gethandy.data.model.AppointmentWithDetails
-import com.example.gethandy.data.model.Business
-import com.example.gethandy.data.model.User
-import org.maplibre.android.geometry.LatLng
+import com.example.gethandy.TAG
+import com.example.gethandy.utils.NetworkResult
+import com.example.gethandy.utils.SnackbarType
+import com.example.gethandy.utils.showSnackbar
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 
 class AppointmentsFragment : Fragment() {
+    private val viewModel: AppointmentsViewModel by viewModels()
+    private val args: AppointmentsFragmentArgs by navArgs()
 
-    private lateinit var rvAppointments: RecyclerView
-    private lateinit var appointmentsAdapter: AppointmentsAdapter
+    private lateinit var viewPager: ViewPager2
+    private lateinit var tabLayout: TabLayout
 
-    // Create sample data that matches our new models
-    private val sampleUser1 = User(
-        userId = "user_1",
-        fullName = "John Doe",
-        email = "john@example.com",
-        phone = "123456789",
-        profilePicUrl = "",
-        businessId = null
-    )
-
-    private val sampleUser2 = User(
-        userId = "user_2",
-        fullName = "Jane Smith",
-        email = "jane@example.com",
-        phone = "987654321",
-        profilePicUrl = "",
-        businessId = null
-    )
-
-    private val sampleBusiness1 = Business(
-        businessId = "business_1",
-        userId = "user_3",
-        businessName = "Plumber Service",
-        description = "Plumbing services",
-        address = "123 Main St",
-        profession = "Plumber",
-        location = LatLng(32.0853, 34.7818),
-        geoHash = "sv8vb53nxz"
-    )
-
-    private val sampleBusiness2 = Business(
-        businessId = "business_2",
-        userId = "user_4",
-        businessName = "Electrician Service",
-        description = "Electrical services",
-        address = "456 Oak St",
-        profession = "Electrician",
-        location = LatLng(32.0853, 34.7818),
-        geoHash = "sv8vb53nxz"
-    )
-
-    private val appointment1 = Appointment(
-        appointmentId = "1",
-        userId = "user_1",
-        businessId = "business_1",
-        date = "January 1, 2025",
-        time = "10:00 AM"
-    )
-
-    private val appointment2 = Appointment(
-        appointmentId = "2",
-        userId = "user_2",
-        businessId = "business_2",
-        date = "January 3, 2025",
-        time = "2:30 PM"
-    )
-
-    private val appointmentsList = mutableListOf(
-        AppointmentWithDetails(appointment1, sampleUser1, sampleBusiness1),
-        AppointmentWithDetails(appointment2, sampleUser2, sampleBusiness2)
-    )
+    private var pendingHighlightId: String? = null
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View {
+    ): View? {
         return inflater.inflate(R.layout.fragment_appointments, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        rvAppointments = view.findViewById(R.id.rvAppointments)
 
-        appointmentsAdapter = AppointmentsAdapter(
-            appointmentsList,
-            onProfileClick = { userId ->
-                val action = AppointmentsFragmentDirections.actionAppointmentsToProfile(userId)
-                findNavController().navigate(action)
-            },
-            onCancelClick = { appointment ->
-                showCancelConfirmation(appointment)
-            }
-        )
-        rvAppointments.adapter = appointmentsAdapter
+        viewPager = view.findViewById(R.id.viewPager)
+        tabLayout = view.findViewById(R.id.tabLayout)
+
+        setupViewPager()
+        observeViewModel()
+
+        viewModel.loadAppointments(isUpcoming = true)
+
+        args.appointmentId?.let { appointmentId ->
+            pendingHighlightId = appointmentId
+
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    viewModel.setHighlightedAppointmentId(appointmentId)
+
+                    tabLayout.getTabAt(0)?.select()
+                } catch (e: Exception) {
+                    Log.e(TAG, "MainFrag: Error setting highlight ID: ${e.message}")
+                }
+            }, 300)
+        }
     }
 
-    private fun showCancelConfirmation(appointment: Appointment) {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Cancel Appointment")
-            .setMessage("Are you sure you want to cancel this appointment?")
-            .setPositiveButton("Yes") { _, _ ->
-                // Remove the appointment that contains this appointment object
-                val appointmentWithDetails = appointmentsList.find { it.appointment.appointmentId == appointment.appointmentId }
-                appointmentWithDetails?.let {
-                    appointmentsList.remove(it)
-                    appointmentsAdapter.notifyDataSetChanged()
+    private fun setupViewPager() {
+        val pagerAdapter = AppointmentsPagerAdapter(this)
+        viewPager.adapter = pagerAdapter
+
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = if (position == 0) "Upcoming" else "Past"
+        }.attach()
+
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab) {
+                val isUpcoming = tab.position == 0
+                viewModel.loadAppointments(loadMore = false, isUpcoming = isUpcoming)
+
+                pendingHighlightId?.let { appointmentId ->
+                    viewModel.setHighlightedAppointmentId(appointmentId)
                 }
             }
-            .setNegativeButton("No", null)
-            .show()
+
+            override fun onTabUnselected(tab: TabLayout.Tab) {}
+            override fun onTabReselected(tab: TabLayout.Tab) {}
+        })
+    }
+
+    private fun observeViewModel() {
+        viewModel.error.observe(viewLifecycleOwner) { errorMessage ->
+            if (errorMessage != null) {
+                Log.e(TAG, "MainFrag: ERROR - $errorMessage")
+                showSnackbar(requireView(), errorMessage, SnackbarType.ERROR)
+            }
+        }
+
+        viewModel.cancelResult.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Success -> {
+                    showSnackbar(requireView(), "Appointment cancelled successfully", SnackbarType.SUCCESS)
+                    viewModel.resetCancelResult()
+                }
+                is NetworkResult.Error -> {
+                    showSnackbar(requireView(), result.message, SnackbarType.ERROR)
+                    viewModel.resetCancelResult()
+                }
+                else -> {}
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        args.appointmentId?.let { appointmentId ->
+            pendingHighlightId = appointmentId
+
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    viewModel.setHighlightedAppointmentId(appointmentId)
+
+                    tabLayout.getTabAt(0)?.select()
+                } catch (e: Exception) {
+                    Log.e(TAG, "MainFrag: Error highlighting in onResume: ${e.message}")
+                }
+            }, 300)
+        }
+    }
+
+    private inner class AppointmentsPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
+        override fun getItemCount(): Int = 2
+
+        override fun createFragment(position: Int): Fragment {
+            return AppointmentListFragment.newInstance(isPast = position == 1)
+        }
+    }
+
+    fun getCurrentTabPosition(): Int {
+        return tabLayout.selectedTabPosition
     }
 }

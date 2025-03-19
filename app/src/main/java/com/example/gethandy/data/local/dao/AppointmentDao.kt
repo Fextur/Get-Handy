@@ -12,6 +12,10 @@ interface AppointmentDao {
     fun getAppointmentWithDetails(appointmentId: String): LiveData<AppointmentWithDetails?>
 
     @Transaction
+    @Query("SELECT * FROM appointments WHERE appointmentId = :appointmentId")
+    suspend fun getAppointmentWithDetailsSync(appointmentId: String): AppointmentWithDetails?
+
+    @Transaction
     @Query("SELECT * FROM appointments WHERE userId = :userId ORDER BY date ASC, time ASC")
     fun getAppointmentsForUser(userId: String): LiveData<List<AppointmentWithDetails>>
 
