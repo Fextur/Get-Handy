@@ -16,11 +16,14 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.LinearLayoutManager
 import applyPhoneFormatting
 import com.bumptech.glide.Glide
 import com.example.gethandy.R
 import com.example.gethandy.TAG
+import com.example.gethandy.data.model.Review
 import com.example.gethandy.databinding.FragmentProfileBinding
+import com.example.gethandy.ui.review.ReviewsAdapter
 import com.example.gethandy.utils.LoadingUtil
 import com.example.gethandy.utils.MapUtils
 import com.example.gethandy.utils.MapUtils.bindMapLifecycle
@@ -53,6 +56,9 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     private var isSaving = false
 
+    private lateinit var reviewsAdapter: ReviewsAdapter
+
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -75,6 +81,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
         setupListeners()
         setupProfessionAutocomplete()
+        setupReviews()
+
         observeViewModel()
 
         userId?.let {
@@ -543,5 +551,43 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun setupReviews() {
+        // Get current user ID, defaulting to "current_user" if not available
+        val currentUserId = UserManager.getUserId(requireContext()) ?: "current_user"
+
+        // Initialize adapter with current user ID
+        reviewsAdapter = ReviewsAdapter(currentUserId)
+
+        binding.rvReviews.apply {
+            layoutManager = LinearLayoutManager(context)
+            adapter = reviewsAdapter
+        }
+
+        // Always show mock reviews for development purposes
+        if (userId != null) {
+            // Create two mock reviews - one where user is reviewer, one where user is reviewed
+            val mockReviews = listOf(
+                Review(
+                    reviewId = "review1",
+                    reviewerId = "reviewer1",  // Someone else reviewed this user
+                    reviewedId = userId!!,
+                    content = "Great service! Very professional.",
+                    date = "2025-02-15",
+                    imageUrl = null
+                ),
+                Review(
+                    reviewId = "review2",
+                    reviewerId = currentUserId,  // Current user reviewed someone else
+                    reviewedId = "reviewed_user",
+                    content = "Excellent work. Would hire again.",
+                    date = "2025-01-20",
+                    imageUrl = "https://loglig.com/assets/players/PlayerImage_267738_05042024202327539.jpeg"
+                )
+            )
+
+            reviewsAdapter.updateReviews(mockReviews)
+        }
     }
 }

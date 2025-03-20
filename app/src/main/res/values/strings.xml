@@ -155,4 +155,6 @@
     <string name="reviews">Reviews</string>
     <string name="review_image">Review Image</string>
     <string name="upload_image">Upload Image</string>
+    <string name="reviewer_user_id">From: %1$s</string>
+    <string name="reviewed_user_id">To: %1$s</string>
 </resources>
