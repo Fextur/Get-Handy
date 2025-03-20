@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     app:cardCornerRadius="12dp"
     app:cardElevation="4dp">
 
@@ -14,26 +15,27 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/tvBusinessName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/business_name"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textAppearance="?attr/textAppearanceSubtitle1"
+            tools:text="Business Name" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/tvBusinessOccupation"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/plumber"
-            android:textSize="14sp" />
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:layout_marginTop="4dp"
+            tools:text="Plumber" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/tvBusinessDistance"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/_5_km_away"
-            android:textSize="14sp" />
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:layout_marginTop="4dp"
+            tools:text="5 km away" />
     </LinearLayout>
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>
