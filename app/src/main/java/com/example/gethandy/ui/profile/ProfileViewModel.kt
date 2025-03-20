@@ -53,6 +53,19 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         return userRepository.getUserWithBusiness(userId)
     }
 
+    fun refreshBusinessData(businessId: String?) {
+        if (businessId != null) {
+            viewModelScope.launch {
+                try {
+                    val result = businessRepository.getBusinessById(businessId)
+                    Log.d(TAG, "Business data refreshed: ${result is NetworkResult.Success}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error refreshing business data", e)
+                }
+            }
+        }
+    }
+
     fun saveProfileChanges(
         userId: String,
         fullName: String,
@@ -118,7 +131,15 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 )
 
                 if (userResult is NetworkResult.Success) {
-                    userRepository.loadUser(userId)
+                    // Explicitly refresh business data if needed
+                    refreshBusinessData(newBusinessId)
+
+                    // Load user data which triggers the getUserWithBusiness LiveData
+                    val loadResult = userRepository.loadUser(userId)
+                    if (loadResult is NetworkResult.Error) {
+                        Log.e(TAG, "Failed to reload user after update: ${loadResult.message}")
+                    }
+
                     _profileUpdateState.value = NetworkResult.Success(true)
                 } else if (userResult is NetworkResult.Error) {
                     _profileUpdateState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_profile_update_failed))

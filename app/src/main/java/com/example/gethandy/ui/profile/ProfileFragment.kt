@@ -78,7 +78,14 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         observeViewModel()
 
         userId?.let {
+            // This will trigger the getUserWithBusiness LiveData in observeViewModel()
             viewModel.getUserProfile(it)
+
+            // If there's a business ID already known, refresh that too
+            if (businessId != null) {
+                viewModel.refreshBusinessData(businessId)
+            }
+
             viewModel.refreshProfessions()
         }
 
@@ -304,13 +311,16 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         viewModel.profileUpdateState.observe(viewLifecycleOwner) { result ->
             when (result) {
                 is NetworkResult.Loading -> {
+                    // Loading state handled by isSaving flag
                 }
                 is NetworkResult.Success -> {
                     isEditing = false
                     isSaving = false
                     binding.btnEditProfile.text = getString(R.string.edit_profile)
 
-                    userId?.let { viewModel.getUserProfile(it) }
+                    // No need to call getUserProfile explicitly as it's already
+                    // handled in saveProfileChanges by calling userRepository.loadUser
+                    // which triggers the LiveData observers
 
                     updateUIState()
 
@@ -536,6 +546,10 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         if (!isEditing && !isSaving) {
             userId?.let {
                 viewModel.getUserProfile(it)
+                // If there's a business ID, refresh that too
+                businessId?.let { bid ->
+                    viewModel.refreshBusinessData(bid)
+                }
             }
         }
     }
