@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.example.gethandy.R
@@ -37,6 +38,9 @@ class LeaveReviewFragment : Fragment() {
         binding.tvReviewTitle.text = getString(R.string.leave_review_for_user, reviewedUserId.take(5)) // TODO: load his name instead of id
 
         setupImagePicker()
+        binding.btnSubmitReview.setOnClickListener {
+            navigateToProfile(reviewedUserId)
+        }
     }
 
     private fun setupImagePicker() {
@@ -64,6 +68,14 @@ class LeaveReviewFragment : Fragment() {
 
         binding.ivCameraIcon.setOnClickListener {
             imagePickerLauncher.launch("image/*")
+        }
+    }
+
+    private fun navigateToProfile(userId: String) {
+        try {
+            findNavController().navigate(LeaveReviewFragmentDirections.actionReviewToProfile(userId))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error navigating to profile: ${e.message}")
         }
     }
 
