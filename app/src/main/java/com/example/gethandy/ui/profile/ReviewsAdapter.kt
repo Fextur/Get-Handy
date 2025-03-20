@@ -1,4 +1,4 @@
-package com.example.gethandy.ui.review
+package com.example.gethandy.ui.profile
 
 import android.view.LayoutInflater
 import android.view.View
@@ -13,7 +13,10 @@ import com.google.android.material.textview.MaterialTextView
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class ReviewsAdapter(private val profileUserId: String) : RecyclerView.Adapter<ReviewsAdapter.ReviewViewHolder>() {
+class ReviewsAdapter(
+    private val profileUserId: String,
+    private val onReviewClick: (String) -> Unit
+) : RecyclerView.Adapter<ReviewsAdapter.ReviewViewHolder>() {
 
     private var reviews: List<Review> = emptyList()
 
@@ -47,7 +50,9 @@ class ReviewsAdapter(private val profileUserId: String) : RecyclerView.Adapter<R
         fun bind(review: Review) {
             val context = itemView.context
 
-            val displayId = if (profileUserId == review.reviewedId) {
+            val isReviewOfThisProfile = profileUserId == review.reviewedId
+
+            val displayId = if (isReviewOfThisProfile) {
                 context.getString(R.string.reviewer_user_id, review.reviewerId.take(5))
             } else {
                 context.getString(R.string.reviewed_user_id, review.reviewedId.take(5))
@@ -66,6 +71,15 @@ class ReviewsAdapter(private val profileUserId: String) : RecyclerView.Adapter<R
                     .placeholder(R.drawable.loading_icon)
                     .error(R.drawable.student_avatar)
                     .into(ivReviewImage)
+            }
+
+            itemView.setOnClickListener {
+                val otherUserId = if (isReviewOfThisProfile) {
+                    review.reviewerId
+                } else {
+                    review.reviewedId
+                }
+                onReviewClick(otherUserId)
             }
         }
 

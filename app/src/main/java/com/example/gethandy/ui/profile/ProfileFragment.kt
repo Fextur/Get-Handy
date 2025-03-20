@@ -23,7 +23,6 @@ import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.model.Review
 import com.example.gethandy.databinding.FragmentProfileBinding
-import com.example.gethandy.ui.review.ReviewsAdapter
 import com.example.gethandy.utils.LoadingUtil
 import com.example.gethandy.utils.MapUtils
 import com.example.gethandy.utils.MapUtils.bindMapLifecycle
@@ -554,24 +553,22 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun setupReviews() {
-        // Get current user ID, defaulting to "current_user" if not available
         val currentUserId = UserManager.getUserId(requireContext()) ?: "current_user"
 
-        // Initialize adapter with current user ID
-        reviewsAdapter = ReviewsAdapter(currentUserId)
+        reviewsAdapter = ReviewsAdapter(currentUserId) { clickedUserId ->
+            navigateToUserProfile(clickedUserId)
+        }
 
         binding.rvReviews.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = reviewsAdapter
         }
 
-        // Always show mock reviews for development purposes
         if (userId != null) {
-            // Create two mock reviews - one where user is reviewer, one where user is reviewed
             val mockReviews = listOf(
                 Review(
                     reviewId = "review1",
-                    reviewerId = "reviewer1",  // Someone else reviewed this user
+                    reviewerId = "h9lmUXByVpPNwBIuiAivvSn7j6c2",
                     reviewedId = userId!!,
                     content = "Great service! Very professional.",
                     date = "2025-02-15",
@@ -579,8 +576,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 ),
                 Review(
                     reviewId = "review2",
-                    reviewerId = currentUserId,  // Current user reviewed someone else
-                    reviewedId = "reviewed_user",
+                    reviewerId = currentUserId,
+                    reviewedId = "TMYIEKT8rJUrh7MSekiU0Qexrbl2",
                     content = "Excellent work. Would hire again.",
                     date = "2025-01-20",
                     imageUrl = "https://loglig.com/assets/players/PlayerImage_267738_05042024202327539.jpeg"
@@ -588,6 +585,19 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             )
 
             reviewsAdapter.updateReviews(mockReviews)
+        }
+    }
+
+    private fun navigateToUserProfile(userId: String) {
+        try {
+            if (userId == this.userId) {
+                return
+            }
+
+            val action = ProfileFragmentDirections.actionProfileSelf(userId)
+            findNavController().navigate(action)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error navigating to profile: ${e.message}")
         }
     }
 }
