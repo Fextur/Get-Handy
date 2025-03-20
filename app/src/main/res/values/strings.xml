@@ -149,4 +149,10 @@
     <string name="error_upload_image">Error uploading profile image</string>
     <string name="error_search_professions">Error searching professions</string>
     <string name="error_refresh_professions">Error refreshing professions</string>
+    <string name="leave_review_for_user">Leave a Review for %1$s</string>
+    <string name="review_content">Write your review</string>
+    <string name="submit_review">Submit Review</string>
+    <string name="reviews">Reviews</string>
+    <string name="review_image">Review Image</string>
+    <string name="upload_image">Upload Image</string>
 </resources>
