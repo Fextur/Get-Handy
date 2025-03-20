@@ -131,10 +131,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 )
 
                 if (userResult is NetworkResult.Success) {
-                    // Explicitly refresh business data if needed
                     refreshBusinessData(newBusinessId)
 
-                    // Load user data which triggers the getUserWithBusiness LiveData
                     val loadResult = userRepository.loadUser(userId)
                     if (loadResult is NetworkResult.Error) {
                         Log.e(TAG, "Failed to reload user after update: ${loadResult.message}")
@@ -162,7 +160,6 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 professionRepository.refreshProfessions()
-
                 professionRepository.searchProfessions("", 15)
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing professions: ${e.message}")
