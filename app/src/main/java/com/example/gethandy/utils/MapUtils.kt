@@ -89,9 +89,9 @@ object MapUtils {
 
     fun Fragment.bindMapLifecycle(mapView: MapView) {
         val mapLifecycleObserver = object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) {
-                mapView.onStart()
-            }
+//            override fun onStart(owner: LifecycleOwner) {
+//                mapView.onStart()
+//            }
 
             override fun onResume(owner: LifecycleOwner) {
                 mapView.onResume()

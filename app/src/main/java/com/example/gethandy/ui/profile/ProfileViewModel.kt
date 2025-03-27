@@ -7,15 +7,22 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.AppDatabase
+import com.example.gethandy.data.model.ReviewWithUsers
 import com.example.gethandy.data.model.User
+import com.example.gethandy.data.model.Review
+
 import com.example.gethandy.data.model.UserWithBusiness
 import com.example.gethandy.data.repository.BusinessRepository
 import com.example.gethandy.data.repository.ProfessionRepository
+import com.example.gethandy.data.repository.ReviewRepository
 import com.example.gethandy.data.repository.UserRepository
 import com.example.gethandy.utils.NetworkResult
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 
@@ -23,10 +30,12 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val userDao = AppDatabase.getDatabase(application).userDao()
     private val businessDao = AppDatabase.getDatabase(application).businessDao()
     private val professionDao = AppDatabase.getDatabase(application).professionDao()
+    private val reviewDao = AppDatabase.getDatabase(application).reviewDao()
 
     private val userRepository = UserRepository(userDao, context = getApplication())
     private val businessRepository = BusinessRepository(businessDao, userDao, context = getApplication())
     private val professionRepository = ProfessionRepository(professionDao)
+    private val reviewRepository = ReviewRepository(reviewDao, userDao, context = getApplication())
 
     private val _userProfileState = MutableLiveData<NetworkResult<User>>()
     val userProfileState: LiveData<NetworkResult<User>> = _userProfileState
@@ -36,21 +45,33 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     val filteredProfessions = professionRepository.filteredProfessions
 
+
+    fun getUserWithBusiness(userId: String): LiveData<UserWithBusiness?> {
+        return userRepository.getUserWithBusiness(userId)
+    }
+
+
+
+
+    fun getUserReviews(userId: String): Flow<PagingData<Review>> {
+        return reviewRepository.getReviewsPaged(userId).cachedIn(viewModelScope)
+    }
+
+    // Make sure this method is called when loading a user profile
     fun getUserProfile(userId: String) {
         viewModelScope.launch {
             _userProfileState.value = NetworkResult.Loading
             try {
                 val result = userRepository.loadUser(userId)
                 _userProfileState.value = result
+
+                // Refresh reviews data
+                reviewRepository.fetchReviewsFromFirestore(userId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading user profile")
                 _userProfileState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_loading_user_profile))
             }
         }
-    }
-
-    fun getUserWithBusiness(userId: String): LiveData<UserWithBusiness?> {
-        return userRepository.getUserWithBusiness(userId)
     }
 
     fun saveProfileChanges(

@@ -23,3 +23,26 @@ data class UserWithBusiness(
     )
     val business: Business?
 )
+
+//data class UserWithReviews(
+//    @Embedded val user: User,
+//    @Relation(
+//        parentColumn = "userId",
+//        entityColumn = "reviewerId"
+//    )
+//    val reviews: List<Review>
+//)
+//
+//data class UserReviewRelation(
+//    @Embedded val review: Review,
+//    @Relation(
+//        parentColumn = "reviewerId",
+//        entityColumn = "userId"
+//    )
+//    val reviewer: User,
+//    @Relation(
+//        parentColumn = "reviewedId",
+//        entityColumn = "userId"
+//    )
+//    val reviewedUser: User
+//)

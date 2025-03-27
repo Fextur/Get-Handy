@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
+import com.example.gethandy.ui.review.ReviewViewModel
 
 class ProfileFragment : Fragment(), OnMapReadyCallback {
     private var _binding: FragmentProfileBinding? = null
@@ -565,6 +566,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         }
 
         if (userId != null) {
+            val reviews = viewModel.getUserReviews(userId)
             val mockReviews = listOf(
                 Review(
                     reviewId = "review1",
@@ -584,7 +586,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 )
             )
 
-            reviewsAdapter.updateReviews(mockReviews)
+            reviewsAdapter.updateReviews(reviews)
         }
     }
 

@@ -276,6 +276,15 @@
             android:layout_marginTop="8dp"
             app:layout_constraintTop_toBottomOf="@id/btnEditProfile"/>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLeaveReview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/leave_review"
+            android:visibility="gone"
+            android:layout_marginTop="8dp"
+            app:layout_constraintTop_toBottomOf="@id/btnBookAppointment"/>
+
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/tvReviewsTitle"
             android:layout_width="wrap_content"

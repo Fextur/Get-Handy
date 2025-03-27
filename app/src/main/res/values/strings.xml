@@ -157,4 +157,15 @@
     <string name="upload_image">Upload Image</string>
     <string name="reviewer_user_id">From: %1$s</string>
     <string name="reviewed_user_id">To: %1$s</string>
+
+    <string name="error_creating_review">Failed to create review. Please try again.</string>
+    <string name="review_submitted_success">Review submitted successfully!</string>
+    <string name="error_review_content_required">Review content is required</string>
+    <string name="error_invalid_users">Error invalid users</string>
+    <string name="review_content_required">Content required</string>
+    <string name="error_loading_reviews">error loading reviews</string>
+    <string name="error_review_not_found">Review not found</string>
+    <string name="error_fetching_review">Error fetching review</string>
+    <string name="review_submitted_successfully">Review submitted successfully</string>
+
 </resources>
