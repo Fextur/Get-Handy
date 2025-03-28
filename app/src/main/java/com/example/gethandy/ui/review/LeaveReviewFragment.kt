@@ -6,14 +6,19 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.databinding.FragmentLeaveReviewBinding
+import com.example.gethandy.utils.NetworkResult
+import com.google.android.material.snackbar.Snackbar
+import com.google.firebase.auth.FirebaseAuth
 
 class LeaveReviewFragment : Fragment() {
     private var _binding: FragmentLeaveReviewBinding? = null
@@ -21,6 +26,8 @@ class LeaveReviewFragment : Fragment() {
 
     private val args: LeaveReviewFragmentArgs by navArgs()
     private var reviewImageUri: Uri? = null
+
+    private val viewModel: ReviewViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -38,9 +45,8 @@ class LeaveReviewFragment : Fragment() {
         binding.tvReviewTitle.text = getString(R.string.leave_review_for_user, reviewedUserId.take(5)) // TODO: load his name instead of id
 
         setupImagePicker()
-        binding.btnSubmitReview.setOnClickListener {
-            navigateToProfile(reviewedUserId)
-        }
+        setupSubmitButton(reviewedUserId)
+        observeReviewSubmission()
     }
 
     private fun setupImagePicker() {
@@ -68,6 +74,52 @@ class LeaveReviewFragment : Fragment() {
 
         binding.ivCameraIcon.setOnClickListener {
             imagePickerLauncher.launch("image/*")
+        }
+    }
+
+    private fun setupSubmitButton(reviewedUserId: String) {
+        binding.btnSubmitReview.setOnClickListener {
+            val reviewContent = binding.etReviewContent.text.toString().trim()
+
+            if (reviewContent.isEmpty()) {
+                Snackbar.make(binding.root, R.string.error_empty_review, Snackbar.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+            if (currentUserId.isNullOrEmpty()) {
+                Snackbar.make(binding.root, R.string.error_not_logged_in, Snackbar.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            viewModel.submitReview(
+                reviewerId = currentUserId,
+                reviewedId = reviewedUserId,
+                content = reviewContent,
+                imageUri = reviewImageUri
+            )
+        }
+    }
+
+    private fun observeReviewSubmission() {
+        viewModel.reviewSubmissionState.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Success -> {
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.review_submitted_successfully),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    navigateToProfile(args.reviewedUserId)
+                }
+                is NetworkResult.Error -> {
+                    Snackbar.make(
+                        binding.root,
+                        result.message ?: getString(R.string.error_creating_review),
+                        Snackbar.LENGTH_LONG
+                    ).show()
+                }else -> {}
+            }
         }
     }
 

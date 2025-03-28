@@ -9,10 +9,12 @@ import com.example.gethandy.data.local.dao.AppointmentDao
 import com.example.gethandy.data.local.dao.BusinessDao
 import com.example.gethandy.data.local.dao.ProfessionDao
 import com.example.gethandy.data.local.dao.UserDao
+import com.example.gethandy.data.local.dao.ReviewDao
 import com.example.gethandy.data.model.Appointment
 import com.example.gethandy.data.model.Business
 import com.example.gethandy.data.model.Profession
 import com.example.gethandy.data.model.User
+import com.example.gethandy.data.model.Review
 import com.example.gethandy.utils.Converters
 
 @Database(
@@ -20,7 +22,9 @@ import com.example.gethandy.utils.Converters
         User::class,
         Business::class,
         Profession::class,
-        Appointment::class
+        Appointment::class,
+        Review:: class
+
     ],
     version = 5,
     exportSchema = false
@@ -32,6 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
     abstract fun professionDao(): ProfessionDao
     abstract fun appointmentDao(): AppointmentDao
+    abstract fun reviewDao(): ReviewDao
 
     companion object {
         @Volatile

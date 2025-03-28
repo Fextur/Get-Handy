@@ -157,4 +157,10 @@
     <string name="upload_image">Upload Image</string>
     <string name="reviewer_user_id">From: %1$s</string>
     <string name="reviewed_user_id">To: %1$s</string>
+    <string name="error_empty_review">Please write a review before submitting</string>
+    <string name="error_not_logged_in">You must be logged in to submit a review</string>
+    <string name="review_submitted_successfully">Review submitted successfully!</string>
+    <string name="error_creating_review">Failed to create review. Please try again.</string>
+    <string name="error_invalid_users">Error invalid users</string>
+    <string name="error_fetching_review">Error fetching review</string>
 </resources>
