@@ -3,11 +3,14 @@ package com.example.gethandy.ui.profile
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.gethandy.R
 import com.example.gethandy.data.model.Review
+import com.example.gethandy.utils.UserManager
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.imageview.ShapeableImageView
 import com.google.android.material.textview.MaterialTextView
 import java.text.SimpleDateFormat
@@ -15,10 +18,9 @@ import java.util.Locale
 
 class ReviewsAdapter(
     private val profileUserId: String,
-    private val onReviewClick: (String) -> Unit
-) : RecyclerView.Adapter<ReviewsAdapter.ReviewViewHolder>() {
-
-    private var reviews: List<Review> = emptyList()
+    private val onReviewClick: (String) -> Unit,
+    private val onEditReviewClick: (String, String) -> Unit
+) : PagingDataAdapter<Review, ReviewsAdapter.ReviewViewHolder>(REVIEW_COMPARATOR) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ReviewViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -27,18 +29,10 @@ class ReviewsAdapter(
     }
 
     override fun onBindViewHolder(holder: ReviewViewHolder, position: Int) {
-        val review = reviews[position]
-        holder.bind(review)
-    }
-
-    override fun getItemCount(): Int = reviews.size
-
-    fun updateReviews(newReviews: List<Review>) {
-        val diffCallback = ReviewDiffCallback(reviews, newReviews)
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-
-        reviews = newReviews
-        diffResult.dispatchUpdatesTo(this)
+        val review = getItem(position)
+        if (review != null) {
+            holder.bind(review)
+        }
     }
 
     inner class ReviewViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -46,19 +40,24 @@ class ReviewsAdapter(
         private val tvReviewDate: MaterialTextView = itemView.findViewById(R.id.tvReviewDate)
         private val tvReviewContent: MaterialTextView = itemView.findViewById(R.id.tvReviewContent)
         private val ivReviewImage: ShapeableImageView = itemView.findViewById(R.id.ivReviewImage)
+        private val btnEditReview: MaterialButton = itemView.findViewById(R.id.btnEditReview)
 
         fun bind(review: Review) {
             val context = itemView.context
+            val currentUserId = UserManager.getUserId(context)
 
-            val isReviewOfThisProfile = profileUserId == review.reviewedId
+            // Is this review by me or about me?
+            val isReviewByMe = review.reviewerId == profileUserId
+            val isReviewAboutMe = review.reviewedId == profileUserId
 
-            val displayId = if (isReviewOfThisProfile) {
-                context.getString(R.string.reviewer_user_id, review.reviewerId.take(5))
+            // Set text based on whether it's a review by me or about me
+            val displayText = if (isReviewByMe) {
+                context.getString(R.string.my_review_to, review.reviewedId.take(5))
             } else {
-                context.getString(R.string.reviewed_user_id, review.reviewedId.take(5))
+                context.getString(R.string.review_from, review.reviewerId.take(5))
             }
 
-            tvReviewerId.text = displayId
+            tvReviewerId.text = displayText
             tvReviewDate.text = formatDate(review.date)
             tvReviewContent.text = review.content
 
@@ -73,11 +72,19 @@ class ReviewsAdapter(
                     .into(ivReviewImage)
             }
 
+            // Only show edit button for my reviews
+            btnEditReview.visibility = if (review.reviewerId == currentUserId) View.VISIBLE else View.GONE
+
+            btnEditReview.setOnClickListener {
+                onEditReviewClick(review.reviewedId, review.reviewId)
+            }
+
             itemView.setOnClickListener {
-                val otherUserId = if (isReviewOfThisProfile) {
-                    review.reviewerId
-                } else {
+                // Navigate to the other user's profile
+                val otherUserId = if (isReviewByMe) {
                     review.reviewedId
+                } else {
+                    review.reviewerId
                 }
                 onReviewClick(otherUserId)
             }
@@ -95,26 +102,17 @@ class ReviewsAdapter(
         }
     }
 
-    private class ReviewDiffCallback(
-        private val oldList: List<Review>,
-        private val newList: List<Review>
-    ) : DiffUtil.Callback() {
+    companion object {
+        private val REVIEW_COMPARATOR = object : DiffUtil.ItemCallback<Review>() {
+            override fun areItemsTheSame(oldItem: Review, newItem: Review): Boolean {
+                return oldItem.reviewId == newItem.reviewId
+            }
 
-        override fun getOldListSize(): Int = oldList.size
-
-        override fun getNewListSize(): Int = newList.size
-
-        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            return oldList[oldItemPosition].reviewId == newList[newItemPosition].reviewId
-        }
-
-        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            val oldItem = oldList[oldItemPosition]
-            val newItem = newList[newItemPosition]
-
-            return oldItem.content == newItem.content &&
-                    oldItem.date == newItem.date &&
-                    oldItem.imageUrl == newItem.imageUrl
+            override fun areContentsTheSame(oldItem: Review, newItem: Review): Boolean {
+                return oldItem.content == newItem.content &&
+                        oldItem.date == newItem.date &&
+                        oldItem.imageUrl == newItem.imageUrl
+            }
         }
     }
 }

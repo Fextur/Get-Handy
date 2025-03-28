@@ -9,8 +9,14 @@ import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.paging.LoadState
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.LinearLayoutManager
 import applyPhoneFormatting
 import com.bumptech.glide.Glide
 import com.example.gethandy.R
@@ -25,6 +31,8 @@ import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
 import com.example.gethandy.utils.ValidationUtil
 import com.example.gethandy.utils.showSnackbar
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
@@ -46,6 +54,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
 
     private var isSaving = false
     private lateinit var professionAutocomplete: ProfessionAutocompleteView
+    private lateinit var reviewsAdapter: ReviewsAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -75,6 +84,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         )
 
         setupListeners()
+        setupReviewsSection()
         observeViewModel()
 
         userId?.let {
@@ -85,9 +95,91 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             }
 
             viewModel.refreshProfessions()
+            // Refresh combined reviews (both by and about the user)
+            viewModel.refreshCombinedUserReviews(it)
         }
 
         MapUtils.setupMapTouchHandler(binding.mapViewBusinessLocation)
+    }
+
+    private fun setupReviewsSection() {
+        // Set up RecyclerView
+        binding.recyclerViewReviews.layoutManager = LinearLayoutManager(requireContext())
+        binding.recyclerViewReviews.addItemDecoration(
+            DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
+        )
+
+        // Initialize paging adapter
+        userId?.let { uid ->
+            reviewsAdapter = ReviewsAdapter(
+                profileUserId = uid,
+                onReviewClick = { reviewedUserId ->
+                    findNavController().navigate(
+                        ProfileFragmentDirections.actionProfileSelf(reviewedUserId)
+                    )
+                },
+                onEditReviewClick = { reviewedId, reviewId ->
+                    findNavController().navigate(
+                        ProfileFragmentDirections.actionProfileToEditReview(reviewedId, reviewId)
+                    )
+                }
+            )
+            binding.recyclerViewReviews.adapter = reviewsAdapter
+
+            // Add loading state footer
+            reviewsAdapter.addLoadStateListener { loadState ->
+                // Show loading spinner during initial load or refresh
+                binding.progressReviews.visibility =
+                    if (loadState.refresh is LoadState.Loading) View.VISIBLE else View.GONE
+
+                // Show empty state message when no items and not loading
+                val isListEmpty = loadState.refresh is LoadState.NotLoading && reviewsAdapter.itemCount == 0
+                binding.textNoReviews.visibility = if (isListEmpty) View.VISIBLE else View.GONE
+
+                // Show error if initial load or refresh fails
+                val errorState = loadState.source.append as? LoadState.Error
+                    ?: loadState.source.prepend as? LoadState.Error
+                    ?: loadState.append as? LoadState.Error
+                    ?: loadState.prepend as? LoadState.Error
+
+                errorState?.let {
+                    showSnackbar(binding.root, it.error.message ?: getString(R.string.error_loading_reviews),
+                        SnackbarType.ERROR)
+                }
+            }
+        }
+
+        // Collect paged reviews
+        observeReviews()
+    }
+
+    private fun observeReviews() {
+        userId?.let { uid ->
+            // Collect paged reviews
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    viewModel.getCombinedUserReviewsPaged(uid).collect { pagingData ->
+                        reviewsAdapter.submitData(pagingData)
+                    }
+                }
+            }
+
+            // Observe network state for reviews refresh
+            viewModel.reviewsState.observe(viewLifecycleOwner) { result ->
+                when (result) {
+                    is NetworkResult.Loading -> {
+                        binding.progressReviews.visibility = View.VISIBLE
+                    }
+                    is NetworkResult.Success -> {
+                        binding.progressReviews.visibility = View.GONE
+                    }
+                    is NetworkResult.Error -> {
+                        binding.progressReviews.visibility = View.GONE
+                        showSnackbar(binding.root, result.message, SnackbarType.ERROR)
+                    }
+                }
+            }
+        }
     }
 
     override fun onMapReady(maplibreMap: MapLibreMap) {
@@ -468,10 +560,20 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         super.onResume()
 
         if (!isEditing && !isSaving) {
-            userId?.let {
-                viewModel.getUserProfile(it)
-                businessId?.let { bid ->
-                    viewModel.refreshBusinessData(bid)
+             val localUserId = args.userId ?: UserManager.getUserId(requireContext())
+
+            localUserId?.let { uid ->
+                 viewModel.getUserProfile(uid)
+
+                 viewLifecycleOwner.lifecycleScope.launch {
+                     val userResult = viewModel.forceRefreshUserData(uid)
+
+                     if (userResult is NetworkResult.Success && userResult.data.businessId != null) {
+                        businessId = userResult.data.businessId
+                        viewModel.refreshBusinessData(userResult.data.businessId)
+                    }
+
+                    viewModel.refreshCombinedUserReviews(uid)
                 }
             }
         }
