@@ -3,7 +3,6 @@ package com.example.gethandy.data.repository
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import androidx.lifecycle.LiveData
 import androidx.paging.*
 import com.example.gethandy.R
 import com.example.gethandy.TAG
@@ -14,7 +13,6 @@ import com.example.gethandy.utils.ImageUploadService
 import com.example.gethandy.utils.NetworkResult
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
@@ -92,7 +90,6 @@ class ReviewRepository(
 
     suspend fun getReviewById(reviewId: String): NetworkResult<Review> = withContext(Dispatchers.IO) {
         try {
-            // First try to get from local database
             val localReview = reviewDao.getReviewById(reviewId)
             if (localReview != null) {
                 return@withContext NetworkResult.Success(localReview)
