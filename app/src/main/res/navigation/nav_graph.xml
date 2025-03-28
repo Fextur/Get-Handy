@@ -6,7 +6,7 @@
 
     <fragment
         android:id="@+id/splashFragment"
-        android:name="com.example.gethandy.SplashFragment"
+        android:name="com.example.gethandy.ui.splash.SplashFragment"
         android:label="Splash Screen"
         tools:layout="@layout/fragment_splash">
 
@@ -21,7 +21,7 @@
 
     <fragment
         android:id="@+id/loginFragment"
-        android:name="com.example.gethandy.LoginFragment"
+        android:name="com.example.gethandy.ui.auth.LoginFragment"
         android:label="Login"
         tools:layout="@layout/fragment_login">
 
@@ -36,7 +36,7 @@
 
     <fragment
         android:id="@+id/signUpFragment"
-        android:name="com.example.gethandy.SignUpFragment"
+        android:name="com.example.gethandy.ui.auth.SignUpFragment"
         android:label="Sign Up"
         tools:layout="@layout/fragment_sign_up">
 
@@ -47,7 +47,7 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.example.gethandy.HomeFragment"
+        android:name="com.example.gethandy.ui.home.HomeFragment"
         android:label="Home"
         tools:layout="@layout/fragment_home">
 
@@ -70,35 +70,50 @@
 
     <fragment
         android:id="@+id/searchFragment"
-        android:name="com.example.gethandy.SearchFragment"
+        android:name="com.example.gethandy.ui.search.SearchFragment"
         android:label="Search"
         tools:layout="@layout/fragment_search">
 
         <action
             android:id="@+id/action_search_to_profile"
-            app:destination="@id/profileFragment"/>
+            app:destination="@id/profileFragment">
+        <argument
+            android:name="userId"
+            app:argType="string" />
+        </action>
     </fragment>
 
     <fragment
         android:id="@+id/profileFragment"
-        android:name="com.example.gethandy.ProfileFragment"
+        android:name="com.example.gethandy.ui.profile.ProfileFragment"
         android:label="Profile"
         tools:layout="@layout/fragment_profile">
 
-        <action
-            android:id="@+id/action_profile_to_appointment_booking"
-            app:destination="@id/appointmentBookingFragment"/>
+        <argument
+            android:name="userId"
+            app:argType="string"
+            app:nullable="true"/>
 
         <action
-            android:id="@+id/action_profile_to_appointments"
-            app:destination="@id/appointmentsFragment"/>
+            android:id="@+id/action_profile_to_appointment_booking"
+            app:destination="@id/appointmentBookingFragment">
+            <argument
+                android:name="businessId"
+                app:argType="string" />
+        </action>
     </fragment>
 
     <fragment
         android:id="@+id/appointmentsFragment"
-        android:name="com.example.gethandy.AppointmentsFragment"
+        android:name="com.example.gethandy.ui.appointments.AppointmentsFragment"
         android:label="Appointments"
         tools:layout="@layout/fragment_appointments">
+
+        <argument
+            android:name="appointmentId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
 
         <action
             android:id="@+id/action_appointments_to_profile"
@@ -107,16 +122,51 @@
                 android:name="userId"
                 app:argType="string" />
         </action>
+
+        <action
+            android:id="@+id/action_appointments_to_review"
+            app:destination="@id/reviewFragment">
+            <argument
+                android:name="reviewedUserId"
+                app:argType="string" />
+        </action>
     </fragment>
 
     <fragment
         android:id="@+id/appointmentBookingFragment"
-        android:name="com.example.gethandy.AppointmentBookingFragment"
+        android:name="com.example.gethandy.ui.booking.AppointmentBookingFragment"
         android:label="Book Appointment"
         tools:layout="@layout/fragment_appointment_booking">
 
-    <action
-        android:id="@+id/action_booking_to_home"
-        app:destination="@id/homeFragment"/>
+        <argument
+            android:name="businessId"
+            app:argType="string" />
+
+        <action
+            android:id="@+id/action_booking_to_appointments"
+            app:destination="@id/appointmentsFragment"
+            app:popUpTo="@id/profileFragment"
+            app:popUpToInclusive="false">
+            <argument
+                android:name="appointmentId"
+                app:argType="string" />
+        </action>
+    </fragment>
+
+    <fragment
+        android:id="@+id/reviewFragment"
+        android:name="com.example.gethandy.ui.review.LeaveReviewFragment"
+        android:label="Leave a Review"
+        tools:layout="@layout/fragment_leave_review">
+
+        <argument
+            android:name="reviewedUserId"
+            app:argType="string" />
+
+        <action
+            android:id="@+id/action_review_to_appointments"
+            app:destination="@id/appointmentsFragment"
+            app:popUpTo="@id/appointmentsFragment"
+            app:popUpToInclusive="true" />
     </fragment>
 </navigation>

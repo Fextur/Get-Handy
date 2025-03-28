@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.services)
+    id("kotlin-kapt")
+    alias(libs.plugins.androidx.navigation.safeargs)
+
 }
 
 android {
@@ -26,8 +29,16 @@ android {
             properties.load(propertiesFile.inputStream())
         }
 
-        val mapboxApiKey = properties.getProperty("MAPBOX_API_KEY", "")
-        buildConfigField("String", "MAPBOX_API_KEY", "\"$mapboxApiKey\"")
+        val maplibreApiKey = properties.getProperty("MAPLIBRE_API_KEY", "")
+        val cloudinaryCloudName = properties.getProperty("CLOUDINARY_CLOUD_NAME", "")
+        val cloudinaryApiKey = properties.getProperty("CLOUDINARY_API_KEY", "")
+        val cloudinaryApiSecret = properties.getProperty("CLOUDINARY_API_SECRET", "")
+
+        buildConfigField("String", "MAPLIBRE_API_KEY", "\"$maplibreApiKey\"")
+        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"$cloudinaryCloudName\"")
+        buildConfigField("String", "CLOUDINARY_API_KEY", "\"$cloudinaryApiKey\"")
+        buildConfigField("String", "CLOUDINARY_API_SECRET", "\"$cloudinaryApiSecret\"")
+
     }
 
     buildTypes {
@@ -70,12 +81,20 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    implementation(libs.play.services.maps)
     implementation(libs.androidx.material.icons.core)
     implementation(libs.androidx.material.icons.extended)
-    implementation(libs.maplibre)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
-
-
+    implementation(libs.com.google.firebase.firebase.auth)
+    implementation(libs.maplibre)
+    implementation(libs.play.services.location)
+    implementation(libs.glide)
+    kapt(libs.compiler)
+    implementation(libs.cloudinary.android)
+    implementation(libs.geofire.android.common)
+    implementation(libs.androidx.navigation.fragment.ktx.v276)
+    implementation(libs.androidx.navigation.ui)
+    implementation(libs.androidx.room.runtime)
+    kapt(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.ktx)
 }

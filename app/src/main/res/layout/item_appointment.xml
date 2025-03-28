@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/appointmentCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
@@ -14,35 +16,44 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/tvAppointmentDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/january_1_2025"
+            tools:text="January 1, 2025"
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/tvAppointmentTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/_10_00_am"
-            android:textSize="14sp" />
+            tools:text="10:00 AM"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/tvAppointmentWith"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/with_john_doe"
-            android:textSize="14sp" />
+            tools:text="With John Doe"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/tvAppointmentBusiness"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            tools:text="Plumber Pro"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCancelAppointment"
+            android:id="@+id/btnAppointmentAction"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/cancel_appointment"
+            tools:text="@string/cancel_appointment"
             android:layout_marginTop="8dp"
-            android:backgroundTint="@color/red"
-            android:textColor="@android:color/white" />
+            android:textColor="@color/white"/>
     </LinearLayout>
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>
