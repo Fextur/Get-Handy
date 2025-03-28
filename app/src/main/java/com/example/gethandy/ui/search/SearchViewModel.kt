@@ -38,8 +38,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     private val defaultLocation = LatLng(32.0853, 34.7818)
 
-    // Search criteria
-    // Search criteria
     private var searchName: String = ""
     private var searchProfession: String = ""
     private var searchDistanceKm: Double = 5.0
@@ -56,7 +54,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 val location = MapUtils.getUserLocationAsync(getApplication())
                 if (location != null) {
                     _userLocation.value = location
-                    // Perform search with the new location
                     performSearch()
                 } else {
                     Log.d(TAG, "Using default location as user location is unavailable")
@@ -111,7 +108,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 _searchResults.value = NetworkResult.Loading
 
-                // Add a small delay to prevent too many queries while typing
                 delay(300)
 
                 val location = _userLocation.value ?: defaultLocation
@@ -122,17 +118,11 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                     profession = searchProfession
                 )
 
-                // Only update if we're still active (not cancelled)
                 if (isActive) {
                     _searchResults.value = result
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error searching businesses: ${e.message}")
-                // Only update error if we have no previous successful results
-                // This prevents showing errors when fragment is resumed
-                if (_searchResults.value !is NetworkResult.Success) {
-                    _searchResults.value = NetworkResult.Error("Error searching businesses")
-                }
             }
         }
     }

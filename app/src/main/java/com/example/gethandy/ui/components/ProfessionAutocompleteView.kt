@@ -70,7 +70,6 @@ class ProfessionAutocompleteView @JvmOverloads constructor(
         textChangeListeners.remove(listener)
     }
 
-    // Method to set an item click listener
     fun setOnItemClickListener(listener: (String) -> Unit) {
         binding.etProfession.setOnItemClickListener { _, _, _, _ ->
             binding.etProfession.requestFocus()
@@ -122,7 +121,6 @@ class ProfessionAutocompleteView @JvmOverloads constructor(
                         val query = s?.toString() ?: ""
                         onSearchCallback?.invoke(query, 15)
 
-                        // Notify text change listeners
                         textChangeListeners.forEach { listener ->
                             listener(query)
                         }
@@ -135,7 +133,6 @@ class ProfessionAutocompleteView @JvmOverloads constructor(
 
         binding.etProfession.setOnItemClickListener { _, _, _, _ ->
             binding.etProfession.requestFocus()
-            // Notify text change listeners on item selection
             val selectedText = binding.etProfession.text.toString()
             textChangeListeners.forEach { listener ->
                 listener(selectedText)

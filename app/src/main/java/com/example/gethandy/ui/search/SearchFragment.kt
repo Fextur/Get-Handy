@@ -84,12 +84,10 @@ class SearchFragment : Fragment() {
             onSearch = { query, limit -> viewModel.searchProfessions(query, limit) }
         )
 
-        // Add text change listener to profession autocomplete
         binding.professionAutocomplete.addTextChangeListener { _ ->
             debounceSearch()
         }
 
-        // Also listen for item selection
         binding.professionAutocomplete.setOnItemClickListener { _ ->
             debounceSearch()
         }
@@ -98,7 +96,6 @@ class SearchFragment : Fragment() {
     }
 
     private fun setupSearchInputs() {
-        // Business name search with debounce
         binding.etBusinessName.doAfterTextChanged { text ->
             debounceSearch()
         }
@@ -122,7 +119,7 @@ class SearchFragment : Fragment() {
     private fun debounceSearch() {
         searchDebounceJob?.cancel()
         searchDebounceJob = MainScope().launch {
-            delay(500) // Debounce for 500ms
+            delay(500)
             updateSearch()
         }
     }
@@ -173,7 +170,6 @@ class SearchFragment : Fragment() {
 
         viewModel.userLocation.observe(viewLifecycleOwner) { location ->
             if (location != null) {
-                // Update adapter with the user location
                 if (::businessAdapter.isInitialized) {
                     val currentBusinesses = businessAdapter.getBusinesses()
                     businessAdapter = BusinessAdapter(
@@ -186,7 +182,6 @@ class SearchFragment : Fragment() {
                     binding.rvBusinesses.adapter = businessAdapter
                 }
 
-                // Initial search when location is first available
                 updateSearch()
             }
         }
@@ -206,15 +201,6 @@ class SearchFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Only perform a new search if we already have data
-        if (viewModel.searchResults.value is NetworkResult.Success) {
-            try {
-                updateSearch()
-            } catch (e: Exception) {
-                // Silently handle error on resume, since we already have results
-                // and don't want to disrupt user experience
-            }
-        }
     }
 
     override fun onDestroyView() {

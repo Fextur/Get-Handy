@@ -311,22 +311,18 @@ class BusinessRepository(
                             centerLocation
                         )
 
-                        // Check if distance is within radius
                         if (distanceInM <= radiusInKm * 1000) {
-                            // Apply profession filter - check if the profession contains the search term
                             if (profession.isNotEmpty() &&
                                 !docProfession.lowercase().contains(lowerCaseProfession)) {
                                 continue
                             }
 
-                            // Get the owner's name to check against the name filter
                             var ownerName = ""
                             try {
                                 val userDoc = firestore.collection("users").document(userId).get().await()
                                 if (userDoc.exists()) {
                                     ownerName = userDoc.getString("fullName") ?: ""
 
-                                    // Cache user data in Room while we have it
                                     val email = userDoc.getString("email") ?: ""
                                     val phone = userDoc.getString("phone") ?: ""
                                     val profilePicUrl = userDoc.getString("profilePicUrl") ?: ""
@@ -345,10 +341,8 @@ class BusinessRepository(
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error fetching user data for business: $businessId", e)
-                                // Continue with search even if user fetch fails
                             }
 
-                            // Apply name filter - check if either business name OR owner name contains the search term
                             val matchesName = if (name.isNotEmpty()) {
                                 businessName.lowercase().contains(lowerCaseName) ||
                                         ownerName.lowercase().contains(lowerCaseName)
