@@ -163,4 +163,9 @@
     <string name="error_creating_review">Failed to create review. Please try again.</string>
     <string name="error_invalid_users">Error invalid users</string>
     <string name="error_fetching_review">Error fetching review</string>
+    <string name="find_services">Find Businesses</string>
+    <string name="distance">Distance</string>
+    <string name="distance_km">%1$d km</string>
+    <string name="results_found">%1$d results found</string>
+    <string name="business_user_name">Business / User Name</string>
 </resources>

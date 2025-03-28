@@ -190,24 +190,17 @@
                     android:text="@string/profession"
                     android:textAppearance="?attr/textAppearanceBody1" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/layoutBusinessProfession"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                <FrameLayout
+                    android:id="@+id/professionContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/profession">
+                    android:visibility="gone">
 
-                    <AutoCompleteTextView
-                        android:id="@+id/etBusinessProfession"
+                    <com.example.gethandy.ui.components.ProfessionAutocompleteView
+                        android:id="@+id/professionAutocomplete"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:inputType="text"
-                        android:focusable="true"
-                        android:focusableInTouchMode="true"
-                        android:clickable="true"
-                        tools:ignore="LabelFor"
-                        android:padding="16dp"/>
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:layout_height="wrap_content" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/tvBusinessAddress"
