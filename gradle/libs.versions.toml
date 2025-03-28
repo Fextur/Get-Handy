@@ -27,6 +27,7 @@ googleServices = "4.4.2"
 playServicesLocation = "21.3.0"
 roomRuntime = "2.6.1"
 timber = "5.0.1"
+paging = "3.2.1"
 
 
 [libraries]
@@ -64,10 +65,13 @@ androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navi
 androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigationUiKtx" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
-
+androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
+androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
+androidx-room-paging = { group = "androidx.room", name = "room-paging", version.ref = "roomRuntime" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 google-services= { id = "com.google.gms.google-services", version.ref = "googleServices"}
 androidx-navigation-safeargs = { id = "androidx.navigation.safeargs" }
+androidx-paging = { id = "androidx.paging", version.ref = "paging" }
