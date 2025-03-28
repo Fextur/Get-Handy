@@ -28,6 +28,24 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
     private val _reviewSubmissionState = MutableLiveData<NetworkResult<Review>>()
     val reviewSubmissionState: LiveData<NetworkResult<Review>> = _reviewSubmissionState
 
+    private val _reviewData = MutableLiveData<NetworkResult<Review>>()
+    val reviewData: LiveData<NetworkResult<Review>> = _reviewData
+
+    fun fetchReview(reviewId: String) {
+        viewModelScope.launch {
+            _reviewData.value = NetworkResult.Loading
+            try {
+                val result = reviewRepository.getReviewById(reviewId)
+                _reviewData.value = result
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching review", e)
+                _reviewData.value = NetworkResult.Error(
+                    getApplication<Application>().getString(R.string.error_fetching_review)
+                )
+            }
+        }
+    }
+
     fun submitReview(
         reviewId: String?,
         reviewerId: String,

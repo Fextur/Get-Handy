@@ -90,6 +90,32 @@ class ReviewRepository(
         }
     }
 
+    suspend fun getReviewById(reviewId: String): NetworkResult<Review> = withContext(Dispatchers.IO) {
+        try {
+            // First try to get from local database
+            val localReview = reviewDao.getReviewById(reviewId)
+            if (localReview != null) {
+                return@withContext NetworkResult.Success(localReview)
+            }
+
+            val docSnapshot = firestore.collection("reviews").document(reviewId).get().await()
+            if (!docSnapshot.exists()) {
+                return@withContext NetworkResult.Error(context.getString(R.string.error_review_not_found))
+            }
+
+            val review = processReviewsDocument(docSnapshot)
+            if (review == null) {
+                return@withContext NetworkResult.Error(context.getString(R.string.error_invalid_review_data))
+            }
+
+            reviewDao.insertReview(review)
+            return@withContext NetworkResult.Success(review)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching review: ${e.message}", e)
+            return@withContext NetworkResult.Error(context.getString(R.string.error_fetching_review))
+        }
+    }
+
     fun getCombinedUserReviewsPaged(userId: String, pageSize: Int = 10): Flow<PagingData<Review>> {
         return Pager(
             config = PagingConfig(
