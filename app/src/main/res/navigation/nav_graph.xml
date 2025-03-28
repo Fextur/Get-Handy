@@ -103,6 +103,13 @@
         </action>
 
         <action
+            android:id="@+id/action_profile_self"
+            app:destination="@id/profileFragment">
+            <argument
+                android:name="userId"
+                app:argType="string" />
+        </action>
+        <action
             android:id="@+id/action_profile_to_edit_review"
             app:destination="@id/reviewFragment">
 
