@@ -92,7 +92,7 @@ class LeaveReviewFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            val reviewId = "bf68bce2-21d4-4a84-8d9d-e5451c622d8c"
+            val reviewId = args.reviewId;
 
             viewModel.submitReview(
                 reviewId = reviewId,
