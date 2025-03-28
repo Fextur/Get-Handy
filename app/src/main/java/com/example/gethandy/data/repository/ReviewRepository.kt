@@ -45,8 +45,6 @@ class ReviewRepository(
             val imageUrl = imageUri?.let {
                 ImageUploadService.uploadImage(imageUri, "review-image-${UUID.randomUUID()}")
             }
-            if (imageUrl !== null){ Log.e(TAG, imageUrl) }else{Log.e(TAG, "nulll")}
-
 
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val currentDate = dateFormat.format(Date())
