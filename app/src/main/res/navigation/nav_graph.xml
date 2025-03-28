@@ -109,6 +109,18 @@
                 android:name="userId"
                 app:argType="string" />
         </action>
+
+        <action
+            android:id="@+id/action_profile_to_edit_review"
+            app:destination="@id/reviewFragment">
+
+            <argument
+                android:name="reviewedUserId"
+                app:argType="string" />
+            <argument
+                android:name="reviewId"
+                app:argType="string" />
+        </action>
     </fragment>
 
     <fragment
@@ -179,6 +191,13 @@
             <argument
                 android:name="userId"
                 app:argType="string" />
+
+
+            <argument
+                android:name="reviewId"
+                app:argType="string"
+                app:nullable="true"
+                android:defaultValue="@null" />
         </action>
     </fragment>
 </navigation>
