@@ -27,7 +27,8 @@ class ReviewRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val context: Context
 ) {
-    suspend fun createReview(
+    suspend fun createOrUpdateReview(
+        reviewId: String? = null,
         reviewerId: String,
         reviewedId: String,
         content: String,
@@ -44,14 +45,16 @@ class ReviewRepository(
             val imageUrl = imageUri?.let {
                 ImageUploadService.uploadImage(imageUri, "review-image-${UUID.randomUUID()}")
             }
-            if (imageUrl !== null){ Log.e(TAG, imageUrl) }else{Log.e(TAG, "nulll")}
-
 
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val currentDate = dateFormat.format(Date())
 
+            val reviewIdToSave = if (reviewId !== null){
+                reviewId
+            }else{UUID.randomUUID().toString()}
+
             val review = Review(
-                reviewId = UUID.randomUUID().toString(),
+                reviewId = reviewIdToSave,
                 reviewerId = reviewerId,
                 reviewedId = reviewedId,
                 content = content,
@@ -68,13 +71,17 @@ class ReviewRepository(
                 "imageUrl" to (review.imageUrl ?: "")
             )
 
-            firestore.collection("reviews")
-                .document(review.reviewId)
-                .set(reviewMap)
-                .await()
+            if(reviewId !== null){
+                firestore.collection("reviews").document(reviewId)
+                    .update(reviewMap).await()
+            }else{
+                firestore.collection("reviews")
+                    .document(review.reviewId)
+                    .set(reviewMap)
+                    .await()
+            }
 
             reviewDao.insertReview(review)
-
             NetworkResult.Success(review)
         } catch (e: Exception) {
             Log.e(TAG, "Error creating review", e)
@@ -159,150 +166,3 @@ class ReviewRepository(
         }
     }
 }
-
-
-
-
-
-
-
-
-//    // Simplified implementation using a custom RemoteMediator
-//    fun getReviewsPaged(userId: String): Flow<PagingData<Review>> {
-//        return Pager(
-//            config = PagingConfig(
-//                pageSize = 10,
-//                enablePlaceholders = false,
-//                maxSize = 30
-//            ),
-//            pagingSourceFactory = { reviewDao.getReviewsByUserIdPaging(userId) }
-//        ).flow
-//    }
-//
-//    // Manual transformation to add User information
-//    suspend fun getReviewWithUserInfo(review: Review): NetworkResult<ReviewWithUsers?> = withContext(Dispatchers.IO) {
-//        try {
-//            val reviewer = userDao.getUserByIdSync(review.reviewerId)
-//            val reviewedUser = userDao.getUserByIdSync(review.reviewedId)
-//
-//            if (reviewer != null && reviewedUser != null) {
-//                val reviewWithUsers = ReviewWithUsers(
-//                    reviewer = reviewer,
-//                    reviewedUser = reviewedUser,
-//                    review = review
-//                )
-//                return@withContext NetworkResult.Success(reviewWithUsers)
-//            }
-//            return@withContext NetworkResult.Success(null)
-//        } catch (e: Exception) {
-//            Log.e(TAG, "Error getting review with user info", e)
-//            return@withContext NetworkResult.Error(e.message ?: "Unknown error")
-//        }
-//    }
-//
-//    suspend fun getReviewById(reviewId: String): NetworkResult<ReviewWithUsers> = withContext(Dispatchers.IO) {
-//        try {
-//            // Try to get from local database first
-//            val review = reviewDao.getReviewById(reviewId)
-//
-//            if (review != null) {
-//                // Manually construct ReviewWithUsers
-//                val reviewer = userDao.getUserByIdSync(review.reviewerId)
-//                val reviewedUser = userDao.getUserByIdSync(review.reviewedId)
-//
-//                if (reviewer != null && reviewedUser != null) {
-//                    return@withContext NetworkResult.Success(
-//                        ReviewWithUsers(
-//                            reviewer = reviewer,
-//                            reviewedUser = reviewedUser,
-//                            review = review
-//                        )
-//                    )
-//                }
-//            }
-//
-//            // If not found in local database, try to fetch from Firestore
-//            val document = firestore.collection("reviews").document(reviewId).get().await()
-//            if (document.exists()) {
-//                val reviewData = document.toObject(Review::class.java)
-//                if (reviewData != null) {
-//                    reviewDao.insertReview(reviewData)
-//
-//                    // Fetch user data if needed
-//                    fetchUserIfNeeded(reviewData.reviewerId)
-//                    fetchUserIfNeeded(reviewData.reviewedId)
-//
-//                    // Get updated user data
-//                    val reviewer = userDao.getUserByIdSync(reviewData.reviewerId)
-//                    val reviewedUser = userDao.getUserByIdSync(reviewData.reviewedId)
-//
-//                    if (reviewer != null && reviewedUser != null) {
-//                        return@withContext NetworkResult.Success(
-//                            ReviewWithUsers(
-//                                reviewer = reviewer,
-//                                reviewedUser = reviewedUser,
-//                                review = reviewData
-//                            )
-//                        )
-//                    }
-//                }
-//            }
-//
-//            return@withContext NetworkResult.Error(context.getString(R.string.error_review_not_found))
-//        } catch (e: Exception) {
-//            Log.e(TAG, "Error fetching review", e)
-//            return@withContext NetworkResult.Error(context.getString(R.string.error_fetching_review))
-//        }
-//    }
-
-//    private suspend fun fetchUserIfNeeded(userId: String) {
-//        try {
-//            val localUser = userDao.getUserByIdSync(userId)
-//            if (localUser == null) {
-//                val userDoc = firestore.collection("users").document(userId).get().await()
-//                if (userDoc.exists()) {
-//                    val userData = userDoc.toObject(User::class.java)
-//                    userData?.let { userDao.insertUser(it) }
-//                }
-//            }
-//        } catch (e: Exception) {
-//            Log.e(TAG, "Error fetching user data", e)
-//        }
-//    }
-//
-//    suspend fun fetchReviewsFromFirestore(reviewedId: String) = withContext(Dispatchers.IO) {
-//        try {
-//            // Fetch reviews for this user (where they are being reviewed)
-//            val reviewDocs = firestore.collection("reviews")
-//                .whereEqualTo("reviewedId", reviewedId)
-//                .orderBy("date", Query.Direction.DESCENDING)
-//                .get()
-//                .await()
-//
-//            // Convert Firestore documents to Review objects
-//            val reviews = reviewDocs.documents.mapNotNull { doc ->
-//                try {
-//                    doc.toObject(Review::class.java)
-//                } catch (e: Exception) {
-//                    Log.e(TAG, "Error parsing review document", e)
-//                    null
-//                }
-//            }
-//
-//            // Ensure all related users exist in local database
-//            val userIds = reviews.flatMap { listOf(it.reviewerId, it.reviewedId) }.distinct()
-//            for (id in userIds) {
-//                fetchUserIfNeeded(id)
-//            }
-//
-//            // Insert reviews into local database
-//            if (reviews.isNotEmpty()) {
-//                reviewDao.insertReviews(reviews)
-//            } else {
-//
-//            }
-//        } catch (e: Exception) {
-//            Log.e(TAG, "Error fetching reviews", e)
-//        }
-//    }
-//}
