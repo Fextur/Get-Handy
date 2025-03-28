@@ -28,7 +28,8 @@ class ReviewRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val context: Context
 ) {
-    suspend fun createReview(
+    suspend fun createOrUpdateReview(
+        reviewId: String? = null,
         reviewerId: String,
         reviewedId: String,
         content: String,
@@ -45,13 +46,16 @@ class ReviewRepository(
             val imageUrl = imageUri?.let {
                 ImageUploadService.uploadImage(imageUri, "review-image-${UUID.randomUUID()}")
             }
-            if (imageUrl !== null){ Log.e(TAG, imageUrl) }else{Log.e(TAG, "nulll")}
 
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val currentDate = dateFormat.format(Date())
 
+            val reviewIdToSave = if (reviewId !== null){
+                reviewId
+            }else{UUID.randomUUID().toString()}
+
             val review = Review(
-                reviewId = UUID.randomUUID().toString(),
+                reviewId = reviewIdToSave,
                 reviewerId = reviewerId,
                 reviewedId = reviewedId,
                 content = content,
@@ -68,13 +72,17 @@ class ReviewRepository(
                 "imageUrl" to (review.imageUrl ?: "")
             )
 
-            firestore.collection("reviews")
-                .document(review.reviewId)
-                .set(reviewMap)
-                .await()
+            if(reviewId !== null){
+                firestore.collection("reviews").document(reviewId)
+                    .update(reviewMap).await()
+            }else{
+                firestore.collection("reviews")
+                    .document(review.reviewId)
+                    .set(reviewMap)
+                    .await()
+            }
 
             reviewDao.insertReview(review)
-
             NetworkResult.Success(review)
         } catch (e: Exception) {
             Log.e(TAG, "Error creating review", e)
@@ -157,5 +165,5 @@ class ReviewRepository(
             Log.e(TAG, "processReviewDocument: error parsing doc ${doc.id}", e)
             null
         }
-    }
+    } 
 }

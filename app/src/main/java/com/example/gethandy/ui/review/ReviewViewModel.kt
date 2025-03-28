@@ -29,6 +29,7 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
     val reviewSubmissionState: LiveData<NetworkResult<Review>> = _reviewSubmissionState
 
     fun submitReview(
+        reviewId: String?,
         reviewerId: String,
         reviewedId: String,
         content: String,
@@ -38,7 +39,8 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
             _reviewSubmissionState.value = NetworkResult.Loading
 
             try {
-                val result = reviewRepository.createReview(
+                val result = reviewRepository.createOrUpdateReview(
+                    reviewId = reviewId,
                     reviewerId = reviewerId,
                     reviewedId = reviewedId,
                     content = content,

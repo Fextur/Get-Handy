@@ -1,6 +1,4 @@
 package com.example.gethandy.data.local.dao
-
-import androidx.lifecycle.LiveData
 import androidx.paging.PagingSource
 import androidx.room.*
 import com.example.gethandy.data.model.Review

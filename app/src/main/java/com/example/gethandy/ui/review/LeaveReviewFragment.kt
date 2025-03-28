@@ -16,6 +16,7 @@ import com.bumptech.glide.Glide
 import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.databinding.FragmentLeaveReviewBinding
+import com.example.gethandy.utils.LoadingUtil
 import com.example.gethandy.utils.NetworkResult
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
@@ -92,7 +93,11 @@ class LeaveReviewFragment : Fragment() {
                 return@setOnClickListener
             }
 
+            val reviewId = args.reviewId;
+            LoadingUtil.showLoading(requireContext(), true)
+
             viewModel.submitReview(
+                reviewId = reviewId,
                 reviewerId = currentUserId,
                 reviewedId = reviewedUserId,
                 content = reviewContent,
@@ -105,6 +110,8 @@ class LeaveReviewFragment : Fragment() {
         viewModel.reviewSubmissionState.observe(viewLifecycleOwner) { result ->
             when (result) {
                 is NetworkResult.Success -> {
+                    LoadingUtil.showLoading(requireContext(), false)
+
                     Toast.makeText(
                         requireContext(),
                         getString(R.string.review_submitted_successfully),
@@ -113,6 +120,8 @@ class LeaveReviewFragment : Fragment() {
                     navigateToProfile(args.reviewedUserId)
                 }
                 is NetworkResult.Error -> {
+                    LoadingUtil.showLoading(requireContext(), false)
+
                     Snackbar.make(
                         binding.root,
                         result.message ?: getString(R.string.error_creating_review),
@@ -130,6 +139,7 @@ class LeaveReviewFragment : Fragment() {
             Log.e(TAG, "Error navigating to profile: ${e.message}")
         }
     }
+
 
     override fun onDestroyView() {
         super.onDestroyView()
