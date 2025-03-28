@@ -3,6 +3,8 @@ package com.example.gethandy.data.repository
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.lifecycle.LiveData
+import androidx.paging.*
 import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.dao.ReviewDao
@@ -14,8 +16,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -89,35 +90,52 @@ class ReviewRepository(
         }
     }
 
-    suspend fun fetchPaginatedReview(
-        userId: String,
-        limit: Int = 15,
-    ): NetworkResult<List<Review>> {
+    fun getCombinedUserReviewsPaged(userId: String, pageSize: Int = 10): Flow<PagingData<Review>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = pageSize,
+                enablePlaceholders = false,
+                maxSize = pageSize * 3
+            ),
+            pagingSourceFactory = { reviewDao.getCombinedUserReviewsPaged(userId) }
+        ).flow
+    }
+
+    suspend fun refreshCombinedUserReviews(userId: String): NetworkResult<List<Review>> {
         return withContext(Dispatchers.IO) {
             try {
+                val combinedReviews = mutableListOf<Review>()
 
-                return@withContext coroutineScope {
-                    val userReviewsDeferred = async {
-                        firestore.collection("reviews")
-                            .whereEqualTo("reviewerId", userId)
-                            .orderBy("date", Query.Direction.DESCENDING)
-                            .get()
-                            .await()
-                            .documents
-                            .mapNotNull { processReviewsDocument(it) }
-                    }
+                val reviewerQuery = firestore.collection("reviews")
+                    .whereEqualTo("reviewerId", userId)
+                    .get()
+                    .await()
 
-                    val userReviews = userReviewsDeferred.await().take(limit)
+                val reviewerReviews = reviewerQuery.documents.mapNotNull { processReviewsDocument(it) }
+                combinedReviews.addAll(reviewerReviews)
 
-                    NetworkResult.Success(userReviews)
+                val reviewedQuery = firestore.collection("reviews")
+                    .whereEqualTo("reviewedId", userId)
+                    .get()
+                    .await()
+
+                val reviewedReviews = reviewedQuery.documents.mapNotNull { processReviewsDocument(it) }
+                combinedReviews.addAll(reviewedReviews)
+
+                val sortedReviews = combinedReviews.sortedByDescending { it.date }
+
+                reviewDao.clearUserReviews(userId)
+                if (sortedReviews.isNotEmpty()) {
+                    reviewDao.insertReviews(sortedReviews)
                 }
+
+                return@withContext NetworkResult.Success(sortedReviews)
             } catch (e: Exception) {
-                Log.e(TAG, "fetchPaginatedReviews: ERROR", e)
-                NetworkResult.Error(context.getString(R.string.error_fetching_review))
+                Log.e(TAG, "Error refreshing user reviews: ${e.message}", e)
+                return@withContext NetworkResult.Error(context.getString(R.string.error_fetching_review))
             }
         }
     }
-
 
     private fun processReviewsDocument(doc: DocumentSnapshot): Review? {
         return try {
@@ -147,22 +165,5 @@ class ReviewRepository(
             Log.e(TAG, "processReviewDocument: error parsing doc ${doc.id}", e)
             null
         }
-    }
-
-    suspend fun uploadReviewImage(imageUri: Uri): NetworkResult<String> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val imageUrl = ImageUploadService.uploadImage(imageUri, "review-id-${UUID.randomUUID()}")
-
-                if (imageUrl != null) {
-                    NetworkResult.Success(imageUrl)
-                } else {
-                    NetworkResult.Error(context.getString(R.string.error_upload_image))
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error uploading review image: ${e.message}")
-                NetworkResult.Error(context.getString(R.string.error_upload_image))
-            }
-        }
-    }
+    } 
 }

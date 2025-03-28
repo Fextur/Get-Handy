@@ -7,26 +7,35 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.AppDatabase
+import com.example.gethandy.data.model.Review
 import com.example.gethandy.data.model.User
 import com.example.gethandy.data.model.UserWithBusiness
 import com.example.gethandy.data.repository.BusinessRepository
 import com.example.gethandy.data.repository.ProfessionRepository
+import com.example.gethandy.data.repository.ReviewRepository
 import com.example.gethandy.data.repository.UserRepository
 import com.example.gethandy.utils.NetworkResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.maplibre.android.geometry.LatLng
 
 class ProfileViewModel(application: Application) : AndroidViewModel(application) {
     private val userDao = AppDatabase.getDatabase(application).userDao()
     private val businessDao = AppDatabase.getDatabase(application).businessDao()
     private val professionDao = AppDatabase.getDatabase(application).professionDao()
+    private val reviewDao = AppDatabase.getDatabase(application).reviewDao()
 
     private val userRepository = UserRepository(userDao, context = getApplication())
     private val businessRepository = BusinessRepository(businessDao, userDao, context = getApplication())
     private val professionRepository = ProfessionRepository(professionDao)
+    private val reviewRepository = ReviewRepository(reviewDao, userDao, context = getApplication())
 
     private val _userProfileState = MutableLiveData<NetworkResult<User>>()
     val userProfileState: LiveData<NetworkResult<User>> = _userProfileState
@@ -34,7 +43,12 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val _profileUpdateState = MutableLiveData<NetworkResult<Boolean>>()
     val profileUpdateState: LiveData<NetworkResult<Boolean>> = _profileUpdateState
 
+    private val _reviewsState = MutableLiveData<NetworkResult<List<Review>>>()
+    val reviewsState: LiveData<NetworkResult<List<Review>>> = _reviewsState
+
     val filteredProfessions = professionRepository.filteredProfessions
+
+    private var _userReviewsFlow: Flow<PagingData<Review>>? = null
 
     fun getUserProfile(userId: String) {
         viewModelScope.launch {
@@ -51,6 +65,32 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     fun getUserWithBusiness(userId: String): LiveData<UserWithBusiness?> {
         return userRepository.getUserWithBusiness(userId)
+    }
+
+    fun getCombinedUserReviewsPaged(userId: String): Flow<PagingData<Review>> {
+        val lastResult = _userReviewsFlow
+        if (lastResult != null) {
+            return lastResult
+        }
+
+        val newResult = reviewRepository.getCombinedUserReviewsPaged(userId)
+            .cachedIn(viewModelScope)
+        _userReviewsFlow = newResult
+        return newResult
+    }
+
+    fun refreshCombinedUserReviews(userId: String) {
+        viewModelScope.launch {
+            _reviewsState.value = NetworkResult.Loading
+            try {
+                val result = reviewRepository.refreshCombinedUserReviews(userId)
+                _reviewsState.value = result
+                _userReviewsFlow = null
+            } catch (e: Exception) {
+                Log.e(TAG, "Error refreshing user reviews: ${e.message}")
+                _reviewsState.value = NetworkResult.Error(getApplication<Application>().getString(R.string.error_fetching_review))
+            }
+        }
     }
 
     fun refreshBusinessData(businessId: String?) {
@@ -163,6 +203,29 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 professionRepository.searchProfessions("", 15)
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing professions: ${e.message}")
+            }
+        }
+    }
+
+    suspend fun forceRefreshUserData(userId: String): NetworkResult<User> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val result = userRepository.loadUser(userId)
+
+                if (result is NetworkResult.Success) {
+                    _userProfileState.postValue(result)
+                } else {
+                    _userProfileState.postValue(result)
+                }
+
+                result
+            } catch (e: Exception) {
+                Log.e(TAG, "Error force refreshing user data", e)
+                val errorResult = NetworkResult.Error(
+                    getApplication<Application>().getString(R.string.error_loading_user_profile)
+                )
+                _userProfileState.postValue(errorResult)
+                errorResult
             }
         }
     }
