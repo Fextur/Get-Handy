@@ -31,6 +31,11 @@ class BusinessAdapter(
 
     override fun getItemCount(): Int = businesses.size
 
+    /**
+     * Returns the current list of businesses
+     */
+    fun getBusinesses(): List<Business> = businesses
+
     fun updateList(newList: List<Business>) {
         val diffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
             override fun getOldListSize(): Int = businesses.size

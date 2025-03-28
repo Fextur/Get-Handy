@@ -259,4 +259,134 @@ class BusinessRepository(
             }
         }
     }
+
+    /**
+     * Search for businesses based on location, name (business or owner) and profession
+     */
+    suspend fun searchBusinesses(
+        center: LatLng,
+        radiusInKm: Double,
+        name: String = "",
+        profession: String = ""
+    ): NetworkResult<List<Business>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val centerLocation = GeoLocation(center.latitude, center.longitude)
+                val bounds = GeoFireUtils.getGeoHashQueryBounds(centerLocation, radiusInKm * 1000)
+
+                val matchingBusinesses = mutableListOf<Business>()
+                val processedBusinessIds = mutableSetOf<String>()
+
+                val lowerCaseName = name.lowercase()
+                val lowerCaseProfession = profession.lowercase()
+
+                bounds.forEach { bound ->
+                    val query = firestore.collection("businesses")
+                        .orderBy("geoHash")
+                        .startAt(bound.startHash)
+                        .endAt(bound.endHash)
+
+                    val querySnapshot = query.get().await()
+
+                    for (doc in querySnapshot.documents) {
+                        val businessId = doc.id
+
+                        if (businessId in processedBusinessIds) continue
+                        processedBusinessIds.add(businessId)
+
+                        val userId = doc.getString("userId") ?: continue
+                        val businessName = doc.getString("businessName") ?: continue
+                        val description = doc.getString("description") ?: ""
+                        val address = doc.getString("address") ?: ""
+                        val docProfession = doc.getString("profession") ?: ""
+                        val geoHash = doc.getString("geoHash") ?: continue
+
+                        val locationMap = doc.get("location") as? Map<*, *> ?: continue
+                        val lat = locationMap["latitude"] as? Double ?: continue
+                        val lng = locationMap["longitude"] as? Double ?: continue
+                        val location = LatLng(lat, lng)
+
+                        val distanceInM = GeoFireUtils.getDistanceBetween(
+                            GeoLocation(lat, lng),
+                            centerLocation
+                        )
+
+                        // Check if distance is within radius
+                        if (distanceInM <= radiusInKm * 1000) {
+                            // Apply profession filter - check if the profession contains the search term
+                            if (profession.isNotEmpty() &&
+                                !docProfession.lowercase().contains(lowerCaseProfession)) {
+                                continue
+                            }
+
+                            // Get the owner's name to check against the name filter
+                            var ownerName = ""
+                            try {
+                                val userDoc = firestore.collection("users").document(userId).get().await()
+                                if (userDoc.exists()) {
+                                    ownerName = userDoc.getString("fullName") ?: ""
+
+                                    // Cache user data in Room while we have it
+                                    val email = userDoc.getString("email") ?: ""
+                                    val phone = userDoc.getString("phone") ?: ""
+                                    val profilePicUrl = userDoc.getString("profilePicUrl") ?: ""
+                                    val userBusinessId = userDoc.getString("businessId")
+
+                                    val user = User(
+                                        userId = userId,
+                                        fullName = ownerName,
+                                        email = email,
+                                        phone = phone,
+                                        profilePicUrl = profilePicUrl,
+                                        businessId = userBusinessId
+                                    )
+
+                                    userDao.insertUser(user)
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error fetching user data for business: $businessId", e)
+                                // Continue with search even if user fetch fails
+                            }
+
+                            // Apply name filter - check if either business name OR owner name contains the search term
+                            val matchesName = if (name.isNotEmpty()) {
+                                businessName.lowercase().contains(lowerCaseName) ||
+                                        ownerName.lowercase().contains(lowerCaseName)
+                            } else {
+                                true
+                            }
+
+                            if (!matchesName) {
+                                continue
+                            }
+
+                            val business = Business(
+                                businessId = businessId,
+                                userId = userId,
+                                businessName = businessName,
+                                description = description,
+                                address = address,
+                                profession = docProfession,
+                                location = location,
+                                geoHash = geoHash
+                            )
+
+                            matchingBusinesses.add(business)
+
+                            try {
+                                businessDao.insertBusiness(business)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error inserting business into Room database: $businessId", e)
+                            }
+                        }
+                    }
+                }
+
+                NetworkResult.Success(matchingBusinesses)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching businesses", e)
+                NetworkResult.Error(context.getString(R.string.error_nearby_businesses))
+            }
+        }
+    }
 }

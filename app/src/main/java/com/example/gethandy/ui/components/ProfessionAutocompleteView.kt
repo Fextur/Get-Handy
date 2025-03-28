@@ -30,6 +30,7 @@ class ProfessionAutocompleteView @JvmOverloads constructor(
     private var onSearchCallback: ((query: String, limit: Int) -> Unit)? = null
     private var professionAdapter: ArrayAdapter<String>? = null
     private var lifecycleOwner: LifecycleOwner? = null
+    private var textChangeListeners = mutableListOf<(String) -> Unit>()
 
     fun setup(
         lifecycleOwner: LifecycleOwner,
@@ -59,6 +60,23 @@ class ProfessionAutocompleteView @JvmOverloads constructor(
         return professionName.isNotEmpty() && professions?.any {
             it.name.equals(professionName, ignoreCase = true)
         } == true
+    }
+
+    fun addTextChangeListener(listener: (String) -> Unit) {
+        textChangeListeners.add(listener)
+    }
+
+    fun removeTextChangeListener(listener: (String) -> Unit) {
+        textChangeListeners.remove(listener)
+    }
+
+    // Method to set an item click listener
+    fun setOnItemClickListener(listener: (String) -> Unit) {
+        binding.etProfession.setOnItemClickListener { _, _, _, _ ->
+            binding.etProfession.requestFocus()
+            val selectedText = binding.etProfession.text.toString()
+            listener(selectedText)
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -103,6 +121,11 @@ class ProfessionAutocompleteView @JvmOverloads constructor(
                         delay(150)
                         val query = s?.toString() ?: ""
                         onSearchCallback?.invoke(query, 15)
+
+                        // Notify text change listeners
+                        textChangeListeners.forEach { listener ->
+                            listener(query)
+                        }
                     }
                 }
             }
@@ -112,6 +135,11 @@ class ProfessionAutocompleteView @JvmOverloads constructor(
 
         binding.etProfession.setOnItemClickListener { _, _, _, _ ->
             binding.etProfession.requestFocus()
+            // Notify text change listeners on item selection
+            val selectedText = binding.etProfession.text.toString()
+            textChangeListeners.forEach { listener ->
+                listener(selectedText)
+            }
         }
     }
 

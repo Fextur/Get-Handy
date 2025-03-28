@@ -9,83 +9,44 @@ import androidx.lifecycle.viewModelScope
 import com.example.gethandy.TAG
 import com.example.gethandy.data.local.AppDatabase
 import com.example.gethandy.data.model.Business
+import com.example.gethandy.data.repository.BusinessRepository
 import com.example.gethandy.data.repository.ProfessionRepository
 import com.example.gethandy.utils.MapUtils
-import com.firebase.geofire.GeoFireUtils
-import com.firebase.geofire.GeoLocation
+import com.example.gethandy.utils.NetworkResult
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
 
     private val professionDao = AppDatabase.getDatabase(application).professionDao()
+    private val businessDao = AppDatabase.getDatabase(application).businessDao()
+    private val userDao = AppDatabase.getDatabase(application).userDao()
+
     private val professionRepository = ProfessionRepository(professionDao)
+    private val businessRepository = BusinessRepository(businessDao, userDao, context = getApplication())
 
     val filteredProfessions = professionRepository.filteredProfessions
 
-    private val _searchResults = MutableLiveData<List<Business>>()
-    val searchResults: LiveData<List<Business>> = _searchResults
+    private val _searchResults = MutableLiveData<NetworkResult<List<Business>>>()
+    val searchResults: LiveData<NetworkResult<List<Business>>> = _searchResults
 
     private val _userLocation = MutableLiveData<LatLng?>()
     val userLocation: MutableLiveData<LatLng?> = _userLocation
 
     private val defaultLocation = LatLng(32.0853, 34.7818)
 
-    private val businessesList = mutableListOf(
-        Business(
-            businessId = "1",
-            userId = "SIRVTNalHFfLjpEr39iVUunuPft2",
-            businessName = "Plumber Pro",
-            description = "Expert plumbing services for all home and commercial needs.",
-            profession = "Plumber",
-            address = "123 Water Street, Tel Aviv",
-            location = LatLng(32.0953, 34.7818),  // 1.1 km away
-            geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(32.0953, 34.7818))
-        ),
-        Business(
-            businessId = "2",
-            userId = "user2",
-            businessName = "ElectriCity",
-            description = "Professional electrical services for residential and commercial properties.",
-            profession = "Electrician",
-            address = "456 Circuit Avenue, Tel Aviv",
-            location = LatLng(32.1153, 34.7918),  // 3.5 km away
-            geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(32.1153, 34.7918))
-        ),
-        Business(
-            businessId = "3",
-            userId = "user3",
-            businessName = "Carpenter's Corner",
-            description = "Quality carpentry work for all your woodworking needs.",
-            profession = "Carpenter",
-            address = "789 Wood Street, Tel Aviv",
-            location = LatLng(32.0653, 34.8018),  // 4.2 km away
-            geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(32.0653, 34.8018))
-        ),
-        Business(
-            businessId = "4",
-            userId = "user4",
-            businessName = "Paint Masters",
-            description = "Professional painting services with attention to detail.",
-            profession = "Painter",
-            address = "101 Color Boulevard, Tel Aviv",
-            location = LatLng(32.1253, 34.8118),  // 7.8 km away
-            geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(32.1253, 34.8118))
-        ),
-        Business(
-            businessId = "5",
-            userId = "user5",
-            businessName = "Garden Gurus",
-            description = "Full-service gardening and landscaping for beautiful outdoor spaces.",
-            profession = "Gardener",
-            address = "202 Green Lane, Tel Aviv",
-            location = LatLng(32.1453, 34.8218),  // 10.5 km away
-            geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(32.1453, 34.8218))
-        )
-    )
+    // Search criteria
+    // Search criteria
+    private var searchName: String = ""
+    private var searchProfession: String = ""
+    private var searchDistanceKm: Double = 5.0
+
+    private var searchJob: Job? = null
 
     init {
-        _searchResults.value = businessesList
         _userLocation.value = defaultLocation
     }
 
@@ -95,13 +56,17 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 val location = MapUtils.getUserLocationAsync(getApplication())
                 if (location != null) {
                     _userLocation.value = location
+                    // Perform search with the new location
+                    performSearch()
                 } else {
                     Log.d(TAG, "Using default location as user location is unavailable")
                     _userLocation.value = defaultLocation
+                    performSearch()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error getting user location: ${e.message}")
                 _userLocation.value = defaultLocation
+                performSearch()
             }
         }
     }
@@ -119,6 +84,55 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 professionRepository.searchProfessions("", 15)
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing professions: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Update the search criteria and perform search
+     */
+    fun updateSearchCriteria(name: String = searchName,
+                             profession: String = searchProfession,
+                             distanceKm: Double = searchDistanceKm) {
+        searchName = name.trim()
+        searchProfession = profession.trim()
+        searchDistanceKm = distanceKm
+
+        performSearch()
+    }
+
+    /**
+     * Search businesses based on current criteria
+     */
+    private fun performSearch() {
+        searchJob?.cancel()
+
+        searchJob = viewModelScope.launch {
+            try {
+                _searchResults.value = NetworkResult.Loading
+
+                // Add a small delay to prevent too many queries while typing
+                delay(300)
+
+                val location = _userLocation.value ?: defaultLocation
+                val result = businessRepository.searchBusinesses(
+                    center = location,
+                    radiusInKm = searchDistanceKm,
+                    name = searchName,
+                    profession = searchProfession
+                )
+
+                // Only update if we're still active (not cancelled)
+                if (isActive) {
+                    _searchResults.value = result
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error searching businesses: ${e.message}")
+                // Only update error if we have no previous successful results
+                // This prevents showing errors when fragment is resumed
+                if (_searchResults.value !is NetworkResult.Success) {
+                    _searchResults.value = NetworkResult.Error("Error searching businesses")
+                }
             }
         }
     }
