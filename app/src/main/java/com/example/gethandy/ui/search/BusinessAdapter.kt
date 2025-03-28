@@ -4,11 +4,12 @@ import android.location.Location
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.example.gethandy.R
 import com.example.gethandy.data.model.Business
+import com.google.android.material.textview.MaterialTextView
+import java.text.DecimalFormat
 
 class BusinessAdapter(
     private var businesses: List<Business>,
@@ -30,6 +31,11 @@ class BusinessAdapter(
 
     override fun getItemCount(): Int = businesses.size
 
+    /**
+     * Returns the current list of businesses
+     */
+    fun getBusinesses(): List<Business> = businesses
+
     fun updateList(newList: List<Business>) {
         val diffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
             override fun getOldListSize(): Int = businesses.size
@@ -49,14 +55,17 @@ class BusinessAdapter(
     }
 
     inner class BusinessViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val tvName: TextView = itemView.findViewById(R.id.tvBusinessName)
-        private val tvOccupation: TextView = itemView.findViewById(R.id.tvBusinessOccupation)
-        private val tvDistance: TextView = itemView.findViewById(R.id.tvBusinessDistance)
+        private val tvName: MaterialTextView = itemView.findViewById(R.id.tvBusinessName)
+        private val tvOccupation: MaterialTextView = itemView.findViewById(R.id.tvBusinessOccupation)
+        private val tvDistance: MaterialTextView = itemView.findViewById(R.id.tvBusinessDistance)
 
         fun bind(business: Business) {
             tvName.text = business.businessName
             tvOccupation.text = business.profession
-            tvDistance.text = itemView.context.getString(R.string.distance_km_away, calculateDistance(business))
+
+            val distance = calculateDistance(business)
+            val df = DecimalFormat("#.#")
+            tvDistance.text = itemView.context.getString(R.string.distance_km_away, df.format(distance).toDouble())
 
             itemView.setOnClickListener {
                 onBusinessClick(business.userId)

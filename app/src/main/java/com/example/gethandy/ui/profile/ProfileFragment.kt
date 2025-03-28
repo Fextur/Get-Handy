@@ -1,19 +1,14 @@
 package com.example.gethandy.ui.profile
 
-import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import applyPhoneFormatting
@@ -21,6 +16,7 @@ import com.bumptech.glide.Glide
 import com.example.gethandy.R
 import com.example.gethandy.TAG
 import com.example.gethandy.databinding.FragmentProfileBinding
+import com.example.gethandy.ui.components.ProfessionAutocompleteView
 import com.example.gethandy.utils.LoadingUtil
 import com.example.gethandy.utils.MapUtils
 import com.example.gethandy.utils.MapUtils.bindMapLifecycle
@@ -29,9 +25,6 @@ import com.example.gethandy.utils.SnackbarType
 import com.example.gethandy.utils.UserManager
 import com.example.gethandy.utils.ValidationUtil
 import com.example.gethandy.utils.showSnackbar
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.OnMapReadyCallback
@@ -52,6 +45,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     private var maplibreMap: MapLibreMap? = null
 
     private var isSaving = false
+    private lateinit var professionAutocomplete: ProfessionAutocompleteView
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -73,12 +67,23 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         userId = args.userId ?: UserManager.getUserId(requireContext())
         isCurrentUser = (userId == UserManager.getUserId(requireContext()))
 
+        professionAutocomplete = binding.professionAutocomplete
+        professionAutocomplete.setup(
+            lifecycleOwner = viewLifecycleOwner,
+            professions = viewModel.filteredProfessions,
+            onSearch = { query, limit -> viewModel.searchProfessions(query, limit) }
+        )
+
         setupListeners()
-        setupProfessionAutocomplete()
         observeViewModel()
 
         userId?.let {
             viewModel.getUserProfile(it)
+
+            if (businessId != null) {
+                viewModel.refreshBusinessData(businessId)
+            }
+
             viewModel.refreshProfessions()
         }
 
@@ -159,75 +164,8 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             binding.tvBusinessAddress.visibility = View.GONE
             binding.layoutBusinessAddress.visibility = View.VISIBLE
             binding.tvBusinessProfession.visibility = View.GONE
-            binding.layoutBusinessProfession.visibility = View.VISIBLE
+            binding.professionContainer.visibility = View.VISIBLE
         }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupProfessionAutocomplete() {
-
-        val professionAdapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            ArrayList<String>()
-        )
-        binding.etBusinessProfession.setAdapter(professionAdapter)
-
-        binding.etBusinessProfession.threshold = 0
-
-        binding.etBusinessProfession.setOnClickListener {
-            if (professionAdapter.count == 0) {
-                viewModel.searchProfessions("", 15)
-            }
-
-            binding.etBusinessProfession.postDelayed({
-                if (binding.etBusinessProfession.hasFocus()) {
-                    binding.etBusinessProfession.showDropDown()
-                }
-            }, 100)
-        }
-
-        binding.etBusinessProfession.setOnTouchListener { v, _ ->
-            val adapter = binding.etBusinessProfession.adapter
-            if (adapter != null && adapter.count > 0) {
-                v.performClick()
-                binding.etBusinessProfession.showDropDown()
-            }
-            false
-        }
-        var searchJob: Job? = null
-        binding.etBusinessProfession.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                searchJob?.cancel()
-
-                searchJob = lifecycleScope.launch {
-                    delay(150)
-                    val query = s?.toString() ?: ""
-                    viewModel.searchProfessions(query, 15)
-                }
-            }
-
-            override fun afterTextChanged(s: Editable?) {}
-        })
-        viewModel.filteredProfessions.observe(viewLifecycleOwner) { professions ->
-            val professionNames = professions.map { it.name }
-            if (professionNames.isNotEmpty() || professionAdapter.isEmpty) {
-                professionAdapter.clear()
-                professionAdapter.addAll(professionNames)
-                professionAdapter.notifyDataSetChanged()
-                if (binding.etBusinessProfession.hasFocus() && professionNames.isNotEmpty()) {
-                    binding.etBusinessProfession.post {
-                        binding.etBusinessProfession.showDropDown()
-                    }
-                }
-            }
-        }
-        binding.etBusinessProfession.setOnItemClickListener { _, _, _, _ ->
-            binding.etBusinessProfession.requestFocus()
-        }
-        viewModel.refreshProfessions()
     }
 
     private fun observeViewModel() {
@@ -269,7 +207,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                             binding.etBusinessName.setText(business.businessName)
                             binding.etBusinessDescription.setText(business.description)
                             binding.etBusinessAddress.setText(business.address)
-                            binding.etBusinessProfession.setText(business.profession)
+                            professionAutocomplete.setText(business.profession)
 
                             businessLatLng = business.location
                             updateMapWithBusinessLocation()
@@ -309,8 +247,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                     isEditing = false
                     isSaving = false
                     binding.btnEditProfile.text = getString(R.string.edit_profile)
-
-                    userId?.let { viewModel.getUserProfile(it) }
 
                     updateUIState()
 
@@ -355,7 +291,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 binding.tvBusinessAddress.visibility = View.VISIBLE
                 binding.layoutBusinessAddress.visibility = View.GONE
                 binding.tvBusinessProfession.visibility = View.VISIBLE
-                binding.layoutBusinessProfession.visibility = View.GONE
+                binding.professionContainer.visibility = View.GONE
             }
         }
 
@@ -442,7 +378,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         if (binding.radioBusinessYes.isChecked) {
             val businessName = binding.etBusinessName.text.toString().trim()
             val address = binding.etBusinessAddress.text.toString().trim()
-            val profession = binding.etBusinessProfession.text.toString().trim()
+            val profession = professionAutocomplete.getText()
 
             if (!ValidationUtil.isValidBusinessName(businessName)) {
                 binding.layoutBusinessName.error = getString(R.string.error_business_name_required)
@@ -459,10 +395,10 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             }
 
             if (!isProfessionValid(profession)) {
-                binding.layoutBusinessProfession.error = getString(R.string.error_invalid_profession)
+                professionAutocomplete.setError(getString(R.string.error_invalid_profession))
                 return false
             } else {
-                binding.layoutBusinessProfession.error = null
+                professionAutocomplete.setError(null)
             }
 
             if (businessLatLng == null) {
@@ -475,9 +411,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun isProfessionValid(professionName: String): Boolean {
-        return viewModel.filteredProfessions.value?.any {
-            it.name.equals(professionName, ignoreCase = true)
-        } == true
+        return professionAutocomplete.isProfessionValid(professionName, viewModel.filteredProfessions.value)
     }
 
     private fun saveProfileChanges() {
@@ -494,7 +428,7 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 name = binding.etBusinessName.text.toString().trim(),
                 description = binding.etBusinessDescription.text.toString().trim(),
                 address = binding.etBusinessAddress.text.toString().trim(),
-                profession = binding.etBusinessProfession.text.toString().trim(),
+                profession = professionAutocomplete.getText(),
                 location = businessLatLng ?: LatLng(0.0, 0.0)
             )
         } else null
@@ -536,6 +470,9 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
         if (!isEditing && !isSaving) {
             userId?.let {
                 viewModel.getUserProfile(it)
+                businessId?.let { bid ->
+                    viewModel.refreshBusinessData(bid)
+                }
             }
         }
     }

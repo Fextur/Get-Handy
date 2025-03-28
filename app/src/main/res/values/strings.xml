@@ -149,4 +149,9 @@
     <string name="error_upload_image">Error uploading profile image</string>
     <string name="error_search_professions">Error searching professions</string>
     <string name="error_refresh_professions">Error refreshing professions</string>
+    <string name="find_services">Find Businesses</string>
+    <string name="distance">Distance</string>
+    <string name="distance_km">%1$d km</string>
+    <string name="results_found">%1$d results found</string>
+    <string name="business_user_name">Business / User Name</string>
 </resources>

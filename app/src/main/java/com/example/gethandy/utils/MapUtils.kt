@@ -6,6 +6,7 @@ import androidx.core.content.ContextCompat
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.location.Location
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -14,6 +15,9 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.example.gethandy.BuildConfig
+import com.example.gethandy.TAG
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
 import org.maplibre.android.annotations.Marker
@@ -25,6 +29,8 @@ import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 object MapUtils {
     fun initializeMap(context: Context, mapView: MapView, savedInstanceState: Bundle?) {
@@ -76,6 +82,69 @@ object MapUtils {
             } else null
         }
         return null
+    }
+
+    /**
+     * Gets the user's current location without requiring a MapLibreMap instance.
+     * Returns the location if available, or null if location permissions are not granted
+     * or if the location is unavailable.
+     */
+    @SuppressLint("MissingPermission")
+    fun getUserLocationWithoutMap(context: Context): LatLng? {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        var userLocation: LatLng? = null
+
+        try {
+            val locationTask = fusedLocationClient.lastLocation
+            if (locationTask.isSuccessful && locationTask.result != null) {
+                val location = locationTask.result
+                userLocation = LatLng(location.latitude, location.longitude)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting user location without map: ${e.message}")
+        }
+
+        return userLocation
+    }
+
+    /**
+     * Gets the user's current location without requiring a MapLibreMap instance using coroutines.
+     * Returns the location if available, or null if location permissions are not granted
+     * or if the location is unavailable.
+     */
+    @SuppressLint("MissingPermission")
+    suspend fun getUserLocationAsync(context: Context): LatLng? {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+
+        return try {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+            suspendCancellableCoroutine { continuation ->
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location: Location? ->
+                        if (location != null) {
+                            continuation.resume(LatLng(location.latitude, location.longitude))
+                        } else {
+                            continuation.resume(null)
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "Error getting user location: ${e.message}")
+                        continuation.resume(null)
+                    }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting user location async: ${e.message}")
+            null
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")

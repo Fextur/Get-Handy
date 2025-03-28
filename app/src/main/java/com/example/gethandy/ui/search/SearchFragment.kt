@@ -1,90 +1,211 @@
 package com.example.gethandy.ui.search
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.example.gethandy.R
 import com.example.gethandy.data.model.Business
-import com.example.gethandy.ui.appointments.AppointmentsFragmentDirections
-import com.firebase.geofire.GeoFireUtils
-import com.firebase.geofire.GeoLocation
-import com.google.android.material.chip.ChipGroup
-import org.maplibre.android.geometry.LatLng
+import com.example.gethandy.databinding.FragmentSearchBinding
+import com.example.gethandy.utils.LoadingUtil
+import com.example.gethandy.utils.NetworkResult
+import com.example.gethandy.utils.SnackbarType
+import com.example.gethandy.utils.showSnackbar
+import com.google.android.material.slider.Slider
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class SearchFragment : Fragment() {
+    private var _binding: FragmentSearchBinding? = null
+    private val binding get() = _binding!!
 
-    private lateinit var rvBusinesses: RecyclerView
     private lateinit var businessAdapter: BusinessAdapter
-    private lateinit var etSearch: EditText
-    private lateinit var chipGroupFilters: ChipGroup
+    private val viewModel: SearchViewModel by viewModels()
 
-    private val businessesList = mutableListOf(
-        Business(
-            businessId = "1",
-            userId = "SIRVTNalHFfLjpEr39iVUunuPft2",
-            businessName = "Plumber Pro",
-            description = "Expert plumbing services for all home and commercial needs.",
-            profession = "Plumber",
-            address = "123 Water Street, Tel Aviv",
-            location = LatLng(32.0853, 34.7818),
-            geoHash = GeoFireUtils.getGeoHashForLocation(GeoLocation(32.0853, 34.7818))
-        )
-    )
-
-    private var userLat = 32.0853  // Default Tel Aviv
-    private var userLon = 34.7818
+    private var currentDistanceKm = 5.0
+    private var searchDebounceJob: Job? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return inflater.inflate(R.layout.fragment_search, container, false)
+        _binding = FragmentSearchBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
-    private val occupations = listOf("Plumber", "Electrician", "Carpenter")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        rvBusinesses = view.findViewById(R.id.rvBusinesses)
-        etSearch = view.findViewById(R.id.etSearch)
-        chipGroupFilters = view.findViewById(R.id.chipGroupFilters)
+        checkLocationPermission()
+        setupProfessionAutocomplete()
+        setupSearchInputs()
+        setupDistanceSlider()
+        setupBusinessList()
+        observeViewModel()
+    }
 
-        businessAdapter = BusinessAdapter(businessesList, userLat, userLon) { userId ->
-            val action = AppointmentsFragmentDirections.actionAppointmentsToProfile(userId)
-            findNavController().navigate(action)
-        }
-
-        rvBusinesses.layoutManager = LinearLayoutManager(requireContext())
-        rvBusinesses.adapter = businessAdapter
-
-
-        businessAdapter.updateList(businessesList)
-
-        chipGroupFilters.removeAllViews()
-        for (occupation in occupations) {
-            val chip = com.google.android.material.chip.Chip(requireContext()).apply {
-                text = occupation
-                isCheckable = true
-                setOnCheckedChangeListener { _, isChecked ->
-                    filterBusinesses(if (isChecked) occupation else null)
-                }
-            }
-            chipGroupFilters.addView(chip)
+    private val locationPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.loadUserLocationAsync()
+        } else {
+            showSnackbar(binding.root, getString(R.string.location_permission_denied), SnackbarType.WARNING)
         }
     }
 
-    private fun filterBusinesses(selectedOccupation: String?) {
-        val filteredList = if (selectedOccupation == null) {
-            businessesList
+    private fun checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            viewModel.loadUserLocationAsync()
         } else {
-            businessesList.filter { it.profession == selectedOccupation }
+            locationPermissionRequest.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
-        businessAdapter.updateList(filteredList)
+    }
+
+    private fun setupProfessionAutocomplete() {
+        binding.professionAutocomplete.setup(
+            lifecycleOwner = viewLifecycleOwner,
+            professions = viewModel.filteredProfessions,
+            onSearch = { query, limit -> viewModel.searchProfessions(query, limit) }
+        )
+
+        binding.professionAutocomplete.addTextChangeListener { _ ->
+            debounceSearch()
+        }
+
+        binding.professionAutocomplete.setOnItemClickListener { _ ->
+            debounceSearch()
+        }
+
+        viewModel.refreshProfessions()
+    }
+
+    private fun setupSearchInputs() {
+        binding.etBusinessName.doAfterTextChanged { text ->
+            debounceSearch()
+        }
+    }
+
+    private fun setupDistanceSlider() {
+        binding.sliderDistance.apply {
+            addOnChangeListener { _, value, fromUser ->
+                currentDistanceKm = value.toDouble()
+                binding.tvDistanceValue.text = getString(R.string.distance_km, value.toInt())
+
+                if (fromUser) {
+                    debounceSearch()
+                }
+            }
+
+            binding.tvDistanceValue.text = getString(R.string.distance_km, value.toInt())
+        }
+    }
+
+    private fun debounceSearch() {
+        searchDebounceJob?.cancel()
+        searchDebounceJob = MainScope().launch {
+            delay(500)
+            updateSearch()
+        }
+    }
+
+    private fun updateSearch() {
+        val businessName = binding.etBusinessName.text.toString()
+        val profession = binding.professionAutocomplete.getText()
+
+        viewModel.updateSearchCriteria(
+            name = businessName,
+            profession = profession,
+            distanceKm = currentDistanceKm
+        )
+    }
+
+    private fun setupBusinessList() {
+        businessAdapter = BusinessAdapter(
+            businesses = emptyList(),
+            userLat = 0.0,
+            userLon = 0.0
+        ) { userId ->
+            navigateToProfile(userId)
+        }
+
+        binding.rvBusinesses.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = businessAdapter
+        }
+    }
+
+    private fun observeViewModel() {
+        viewModel.searchResults.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Loading -> {
+                    LoadingUtil.showLoading(requireContext(), true)
+                }
+                is NetworkResult.Success -> {
+                    updateBusinessAdapter(result.data)
+                    binding.tvResultsCount.text = getString(R.string.results_found, result.data.size)
+                    LoadingUtil.showLoading(requireContext(), false)
+                }
+                is NetworkResult.Error -> {
+                    LoadingUtil.showLoading(requireContext(), false)
+                    showSnackbar(binding.root, result.message, SnackbarType.ERROR)
+                }
+            }
+        }
+
+        viewModel.userLocation.observe(viewLifecycleOwner) { location ->
+            if (location != null) {
+                if (::businessAdapter.isInitialized) {
+                    val currentBusinesses = businessAdapter.getBusinesses()
+                    businessAdapter = BusinessAdapter(
+                        businesses = currentBusinesses,
+                        userLat = location.latitude,
+                        userLon = location.longitude
+                    ) { userId ->
+                        navigateToProfile(userId)
+                    }
+                    binding.rvBusinesses.adapter = businessAdapter
+                }
+
+                updateSearch()
+            }
+        }
+    }
+
+    private fun updateBusinessAdapter(businesses: List<Business>) {
+        val location = viewModel.userLocation.value
+        if (location != null && ::businessAdapter.isInitialized) {
+            businessAdapter.updateList(businesses)
+        }
+    }
+
+    private fun navigateToProfile(userId: String) {
+        val action = SearchFragmentDirections.actionSearchToProfile(userId)
+        findNavController().navigate(action)
+    }
+
+    override fun onResume() {
+        super.onResume()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        searchDebounceJob?.cancel()
+        _binding = null
     }
 }
