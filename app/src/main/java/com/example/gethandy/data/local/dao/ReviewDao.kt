@@ -17,4 +17,6 @@ interface ReviewDao {
     @Query("DELETE FROM reviews WHERE reviewerId = :userId OR reviewedId = :userId")
     suspend fun clearUserReviews(userId: String)
 
+    @Query("SELECT * FROM reviews WHERE reviewId = :reviewId LIMIT 1")
+    suspend fun getReviewById(reviewId: String): Review?
 }

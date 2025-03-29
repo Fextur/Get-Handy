@@ -43,11 +43,54 @@ class LeaveReviewFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val reviewedUserId = args.reviewedUserId
-        binding.tvReviewTitle.text = getString(R.string.leave_review_for_user, reviewedUserId.take(5)) // TODO: load his name instead of id
+        binding.tvReviewTitle.text = getString(R.string.leave_review_for_user, reviewedUserId.take(5))
 
         setupImagePicker()
         setupSubmitButton(reviewedUserId)
         observeReviewSubmission()
+
+        val reviewId = args.reviewId
+
+        if (reviewId != null) {
+            binding.tvReviewTitle.text = getString(R.string.edit_review_for_user, reviewedUserId.take(5))
+            binding.btnSubmitReview.text = getString(R.string.update_review)
+
+            loadExistingReview(reviewId)
+        }
+    }
+
+    private fun loadExistingReview(reviewId: String) {
+        viewModel.fetchReview(reviewId)
+
+        viewModel.reviewData.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is NetworkResult.Success -> {
+                    val review = result.data
+
+                    binding.etReviewContent.setText(review.content)
+
+                    if (!review.imageUrl.isNullOrEmpty()) {
+
+                        Glide.with(requireContext())
+                            .load(review.imageUrl)
+                            .placeholder(R.drawable.loading_icon)
+                            .into(binding.ivReviewImage)
+
+                        reviewImageUri = Uri.parse(review.imageUrl)
+                        binding.ivCameraIcon.visibility = View.GONE
+                    }
+                }
+                is NetworkResult.Error -> {
+                    Snackbar.make(
+                        binding.root,
+                        result.message ?: getString(R.string.error_fetching_review),
+                        Snackbar.LENGTH_LONG
+                    ).show()
+                }
+                else -> {
+                }
+            }
+        }
     }
 
     private fun setupImagePicker() {

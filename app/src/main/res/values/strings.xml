@@ -174,4 +174,8 @@
     <string name="error_loading_reviews">Error loading reviews</string>
     <string name="my_review_to">My review to: User %s</string>
     <string name="review_from">Review from: User %s</string>
+     <string name="error_review_not_found">Review not found</string>
+     <string name="error_invalid_review_data">Invalid review data</string>
+     <string name="edit_review_for_user">Edit review for %s</string>
+     <string name="update_review">Update Review</string>
 </resources>
