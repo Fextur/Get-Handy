@@ -190,7 +190,7 @@
         <action
             android:id="@+id/action_review_to_profile"
             app:destination="@id/profileFragment"
-            app:popUpTo="@id/appointmentsFragment"
+            app:popUpTo="@id/reviewFragment"
             app:popUpToInclusive="true">
             <argument
                 android:name="userId"
