@@ -38,22 +38,57 @@ class ReviewRepository(
             val reviewedUser = userDao.getUserByIdSync(reviewedId)
 
             if (reviewer == null || reviewedUser == null) {
+                Log.e(TAG, "createOrUpdateReview: Invalid users. Reviewer exists: ${reviewer != null}, Reviewed exists: ${reviewedUser != null}")
                 return@withContext NetworkResult.Error(context.getString(R.string.error_invalid_users))
             }
 
-            val imageUrl = imageUri?.let {
-                ImageUploadService.uploadImage(imageUri, "review-image-${UUID.randomUUID()}")
+            var existingReview: Review? = null
+            if (reviewId != null) {
+                existingReview = reviewDao.getReviewById(reviewId)
+
+            }
+
+            var imageUrl: String? = null
+
+            if (imageUri != null) {
+                val uriString = imageUri.toString()
+
+                if (existingReview != null && uriString == existingReview.imageUrl) {
+                    imageUrl = existingReview.imageUrl
+                } else if (uriString.startsWith("content://") || uriString.startsWith("file://")) {
+                    imageUrl = ImageUploadService.uploadImage(imageUri, "review-image-${UUID.randomUUID()}")
+                } else {
+                    imageUrl = existingReview?.imageUrl
+                }
+            } else if (existingReview != null) {
+                imageUrl = existingReview.imageUrl
             }
 
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val currentDate = dateFormat.format(Date())
 
-            val reviewIdToSave = if (reviewId !== null){
+            val reviewMap = mapOf(
+                "reviewerId" to reviewerId,
+                "reviewedId" to reviewedId,
+                "content" to content,
+                "date" to currentDate,
+                "imageUrl" to (imageUrl ?: "")
+            )
+
+            val finalReviewId = if (reviewId != null) {
+                firestore.collection("reviews").document(reviewId)
+                    .update(reviewMap).await()
                 reviewId
-            }else{UUID.randomUUID().toString()}
+            } else {
+                val docRef = firestore.collection("reviews").document()
+                docRef.set(reviewMap).await()
+
+                val newId = docRef.id
+                newId
+            }
 
             val review = Review(
-                reviewId = reviewIdToSave,
+                reviewId = finalReviewId,
                 reviewerId = reviewerId,
                 reviewedId = reviewedId,
                 content = content,
@@ -61,29 +96,14 @@ class ReviewRepository(
                 imageUrl = imageUrl
             )
 
-            val reviewMap = mapOf(
-                "reviewId" to review.reviewId,
-                "reviewerId" to review.reviewerId,
-                "reviewedId" to review.reviewedId,
-                "content" to review.content,
-                "date" to review.date,
-                "imageUrl" to (review.imageUrl ?: "")
-            )
-
-            if(reviewId !== null){
-                firestore.collection("reviews").document(reviewId)
-                    .update(reviewMap).await()
-            }else{
-                firestore.collection("reviews")
-                    .document(review.reviewId)
-                    .set(reviewMap)
-                    .await()
+            try {
+                reviewDao.insertReview(review)
+            } catch (e: Exception) {
+                Log.e(TAG, "createOrUpdateReview: Error saving review to local database", e)
             }
 
-            reviewDao.insertReview(review)
             NetworkResult.Success(review)
         } catch (e: Exception) {
-            Log.e(TAG, "Error creating review", e)
             NetworkResult.Error(context.getString(R.string.error_creating_review))
         }
     }
