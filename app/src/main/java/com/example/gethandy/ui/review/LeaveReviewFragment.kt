@@ -51,7 +51,7 @@ class LeaveReviewFragment : Fragment() {
 
         val reviewId = args.reviewId
 
-        if (!reviewId.isNullOrEmpty()) {
+        if (reviewId != null) {
             binding.tvReviewTitle.text = getString(R.string.edit_review_for_user, reviewedUserId.take(5))
             binding.btnSubmitReview.text = getString(R.string.update_review)
 
@@ -70,11 +70,13 @@ class LeaveReviewFragment : Fragment() {
                     binding.etReviewContent.setText(review.content)
 
                     if (!review.imageUrl.isNullOrEmpty()) {
+
                         Glide.with(requireContext())
                             .load(review.imageUrl)
                             .placeholder(R.drawable.loading_icon)
                             .into(binding.ivReviewImage)
 
+                        reviewImageUri = Uri.parse(review.imageUrl)
                         binding.ivCameraIcon.visibility = View.GONE
                     }
                 }
