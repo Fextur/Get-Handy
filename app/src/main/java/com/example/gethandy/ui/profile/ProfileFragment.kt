@@ -95,7 +95,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             }
 
             viewModel.refreshProfessions()
-            // Refresh combined reviews (both by and about the user)
             viewModel.refreshCombinedUserReviews(it)
         }
 
@@ -103,13 +102,11 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun setupReviewsSection() {
-        // Set up RecyclerView
         binding.recyclerViewReviews.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerViewReviews.addItemDecoration(
             DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
         )
 
-        // Initialize paging adapter
         userId?.let { uid ->
             reviewsAdapter = ReviewsAdapter(
                 profileUserId = uid,
@@ -126,17 +123,17 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             )
             binding.recyclerViewReviews.adapter = reviewsAdapter
 
-            // Add loading state footer
+
             reviewsAdapter.addLoadStateListener { loadState ->
-                // Show loading spinner during initial load or refresh
+
                 binding.progressReviews.visibility =
                     if (loadState.refresh is LoadState.Loading) View.VISIBLE else View.GONE
 
-                // Show empty state message when no items and not loading
+
                 val isListEmpty = loadState.refresh is LoadState.NotLoading && reviewsAdapter.itemCount == 0
                 binding.textNoReviews.visibility = if (isListEmpty) View.VISIBLE else View.GONE
 
-                // Show error if initial load or refresh fails
+
                 val errorState = loadState.source.append as? LoadState.Error
                     ?: loadState.source.prepend as? LoadState.Error
                     ?: loadState.append as? LoadState.Error
@@ -149,13 +146,12 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
             }
         }
 
-        // Collect paged reviews
+
         observeReviews()
     }
 
     private fun observeReviews() {
         userId?.let { uid ->
-            // Collect paged reviews
             viewLifecycleOwner.lifecycleScope.launch {
                 viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                     viewModel.getCombinedUserReviewsPaged(uid).collect { pagingData ->
@@ -164,7 +160,6 @@ class ProfileFragment : Fragment(), OnMapReadyCallback {
                 }
             }
 
-            // Observe network state for reviews refresh
             viewModel.reviewsState.observe(viewLifecycleOwner) { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
